@@ -1,0 +1,1206 @@
+{
+  "info": {
+    "name": "BinIQ Backend API Collection",
+    "description": "Comprehensive API collection for BinIQ Backend - E-commerce platform with user management, products, stores, subscriptions and more",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\",\n  \"confirm_password\": \"password123\",\n  \"role\": 2,\n  \"dob\": \"1990-01-01\",\n  \"gender\": \"male\",\n  \"phone_number\": \"+1234567890\",\n  \"address\": \"123 Main St, City, State\",\n  \"card_information\": {\n    \"card_number\": \"1234567890123456\",\n    \"cardholder_name\": \"John Doe\",\n    \"expiry_month\": \"12\",\n    \"expiry_year\": \"2025\",\n    \"cvc\": \"123\"\n  },\n  \"expertise_level\": \"intermediate\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "register"]
+            },
+            "description": "Register a new user (Admin=1, Reseller=2, Store Owner=3)"
+          }
+        },
+        {
+          "name": "Register Store Owner",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Jane Store\",\n  \"email\": \"jane@store.com\",\n  \"password\": \"password123\",\n  \"confirm_password\": \"password123\",\n  \"role\": 3,\n  \"store_name\": \"Jane's Store\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "register"]
+            },
+            "description": "Register a new store owner"
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@binIQ.com\",\n  \"password\": \"Admin@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "login"]
+            },
+            "description": "Login user and get JWT token"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.globals.set('authToken', response.token);",
+                  "    pm.collectionVariables.set('authToken', response.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/forgot-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "forgot-password"]
+            },
+            "description": "Send OTP for password reset"
+          }
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otp\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/verify-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "verify-otp"]
+            },
+            "description": "Verify OTP for password reset"
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"new_password\": \"newpassword123\",\n  \"confirm_password\": \"newpassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/reset-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "reset-password"]
+            },
+            "description": "Reset password after OTP verification"
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Management",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "profile"]
+            },
+            "description": "Get current user profile"
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Updated Name\",\n  \"phone_number\": \"+1987654321\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "profile"]
+            },
+            "description": "Update user profile"
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"oldpassword\",\n  \"new_password\": \"newpassword123\",\n  \"confirm_password\": \"newpassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/change-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "change-password"]
+            },
+            "description": "Change user password"
+          }
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/account",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "account"]
+            },
+            "description": "Delete user account"
+          }
+        },
+        {
+          "name": "Approve Store Owner",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"store-owner-user-id\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "approve"]
+            },
+            "description": "Approve store owner (Admin only)"
+          }
+        },
+        {
+          "name": "Reject Store Owner",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"store-owner-user-id\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/reject",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "reject"]
+            },
+            "description": "Reject store owner (Admin only)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Feedback",
+      "item": [
+        {
+          "name": "Submit Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"suggestion\": \"Great app! Could use more features.\",\n  \"type\": \"general\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/feedback",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "feedback"]
+            },
+            "description": "Submit user feedback"
+          }
+        },
+        {
+          "name": "Get Feedback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/feedback",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "feedback"]
+            },
+            "description": "Get user feedbacks"
+          }
+        },
+        {
+          "name": "Reply to Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"feedback_id\": \"feedback-id\",\n  \"reply\": \"Thank you for your feedback!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/feedback/reply",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "feedback", "reply"]
+            },
+            "description": "Reply to feedback (Admin only)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "Create Product",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sample Product\",\n  \"description\": \"A great product\",\n  \"category\": \"electronics\",\n  \"price\": 99.99,\n  \"quantity\": 100,\n  \"images\": [\"image1.jpg\", \"image2.jpg\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products"]
+            },
+            "description": "Create a new product"
+          }
+        },
+        {
+          "name": "Get Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products"]
+            },
+            "description": "Get all products"
+          }
+        },
+        {
+          "name": "Get Trending Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/trending",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products", "trending"]
+            },
+            "description": "Get trending products"
+          }
+        },
+        {
+          "name": "Get Activity Feed",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/activity",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products", "activity"]
+            },
+            "description": "Get product activity feed"
+          }
+        },
+        {
+          "name": "Update Product",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Product Name\",\n  \"price\": 89.99\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products/:product_id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products", ":product_id"],
+              "variable": [
+                {
+                  "key": "product_id",
+                  "value": "product-uuid"
+                }
+              ]
+            },
+            "description": "Update a product"
+          }
+        },
+        {
+          "name": "Delete Product",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/:product_id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products", ":product_id"],
+              "variable": [
+                {
+                  "key": "product_id",
+                  "value": "product-uuid"
+                }
+              ]
+            },
+            "description": "Delete a product"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "Create Category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Electronics\",\n  \"description\": \"Electronic products and gadgets\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories"]
+            },
+            "description": "Create a new category"
+          }
+        },
+        {
+          "name": "Get Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories"]
+            },
+            "description": "Get all categories (no auth required)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Stores",
+      "item": [
+        {
+          "name": "Create Store",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Store\",\n  \"description\": \"Best store in town\",\n  \"category\": \"electronics\",\n  \"address\": \"123 Store St, City\",\n  \"contact_info\": {\n    \"phone\": \"+1234567890\",\n    \"email\": \"store@example.com\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/stores",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stores"]
+            },
+            "description": "Create a new store"
+          }
+        },
+        {
+          "name": "Get My Store",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/my-store",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stores", "my-store"]
+            },
+            "description": "Get current user's store"
+          }
+        },
+        {
+          "name": "Update Store",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Store Name\",\n  \"description\": \"Updated description\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/stores",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stores"]
+            },
+            "description": "Update current user's store"
+          }
+        },
+        {
+          "name": "Get All Stores",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stores"]
+            },
+            "description": "Get all stores"
+          }
+        },
+        {
+          "name": "View Store",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"store_id\": \"store-uuid\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/view",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stores", "view"]
+            },
+            "description": "Record a store view"
+          }
+        },
+        {
+          "name": "Like Store",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"store_id\": \"store-uuid\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/like",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stores", "like"]
+            },
+            "description": "Like a store"
+          }
+        },
+        {
+          "name": "Follow Store",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"store_id\": \"store-uuid\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/follow",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stores", "follow"]
+            },
+            "description": "Follow a store"
+          }
+        },
+        {
+          "name": "Comment on Store",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"store_id\": \"store-uuid\",\n  \"comment\": \"Great store!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/comment",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stores", "comment"]
+            },
+            "description": "Comment on a store"
+          }
+        },
+        {
+          "name": "Get Store Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/details/:store_id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stores", "details", ":store_id"],
+              "variable": [
+                {
+                  "key": "store_id",
+                  "value": "store-uuid"
+                }
+              ]
+            },
+            "description": "Get detailed store information"
+          }
+        },
+        {
+          "name": "Favorite Store",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"store_id\": \"store-uuid\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/favorite",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stores", "favorite"]
+            },
+            "description": "Add/remove store from favorites"
+          }
+        },
+        {
+          "name": "Get Favorite Stores",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/favorites",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stores", "favorites"]
+            },
+            "description": "Get current user's favorite stores"
+          }
+        },
+        {
+          "name": "Get User Favorite Stores",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/favorites/:user_id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stores", "favorites", ":user_id"],
+              "variable": [
+                {
+                  "key": "user_id",
+                  "value": "user-uuid"
+                }
+              ]
+            },
+            "description": "Get specific user's favorite stores"
+          }
+        },
+        {
+          "name": "Get Nearby Stores",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/nearby?latitude=40.7128&longitude=-74.0060&radius=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stores", "nearby"],
+              "query": [
+                {
+                  "key": "latitude",
+                  "value": "40.7128"
+                },
+                {
+                  "key": "longitude",
+                  "value": "-74.0060"
+                },
+                {
+                  "key": "radius",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get stores near a location"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Promotions",
+      "item": [
+        {
+          "name": "Create Promotion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Summer Sale\",\n  \"description\": \"Get 50% off on all items\",\n  \"discount_percentage\": 50,\n  \"start_date\": \"2024-06-01\",\n  \"end_date\": \"2024-08-31\",\n  \"applicable_products\": [\"product-id-1\", \"product-id-2\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/promotions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "promotions"]
+            },
+            "description": "Create a new promotion"
+          }
+        },
+        {
+          "name": "Get Promotions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/promotions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "promotions"]
+            },
+            "description": "Get all promotions"
+          }
+        },
+        {
+          "name": "Update Promotion",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Summer Sale\",\n  \"discount_percentage\": 60\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/promotions/:promotion_id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "promotions", ":promotion_id"],
+              "variable": [
+                {
+                  "key": "promotion_id",
+                  "value": "promotion-uuid"
+                }
+              ]
+            },
+            "description": "Update a promotion"
+          }
+        },
+        {
+          "name": "Delete Promotion",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/promotions/:promotion_id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "promotions", ":promotion_id"],
+              "variable": [
+                {
+                  "key": "promotion_id",
+                  "value": "promotion-uuid"
+                }
+              ]
+            },
+            "description": "Delete a promotion"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Subscriptions",
+      "item": [
+        {
+          "name": "Get Subscription Tiers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/subscriptions/tiers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "subscriptions", "tiers"]
+            },
+            "description": "Get available subscription tiers"
+          }
+        },
+        {
+          "name": "Update Subscription Tiers",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tiers\": [\n    {\n      \"type\": \"reseller\",\n      \"tier\": \"tier1\",\n      \"amount\": 15,\n      \"duration\": 30\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/subscriptions/tiers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "subscriptions", "tiers"]
+            },
+            "description": "Update subscription tiers (Admin only)"
+          }
+        },
+        {
+          "name": "Subscribe",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan_id\": \"plan-uuid\",\n  \"payment_method\": \"card\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/subscriptions/subscribe",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "subscriptions", "subscribe"]
+            },
+            "description": "Subscribe to a plan"
+          }
+        },
+        {
+          "name": "Get Subscriptions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/subscriptions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "subscriptions"]
+            },
+            "description": "Get user subscriptions"
+          }
+        },
+        {
+          "name": "Cancel Subscription",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subscription_id\": \"subscription-uuid\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/subscriptions/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "subscriptions", "cancel"]
+            },
+            "description": "Cancel a subscription"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Create Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"New Promotion\",\n  \"message\": \"Check out our latest summer sale!\",\n  \"type\": \"promotion\",\n  \"recipient_id\": \"user-uuid\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications"]
+            },
+            "description": "Create a new notification"
+          }
+        },
+        {
+          "name": "Get Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications"]
+            },
+            "description": "Get user notifications"
+          }
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/:notification_id/read",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", ":notification_id", "read"],
+              "variable": [
+                {
+                  "key": "notification_id",
+                  "value": "notification-uuid"
+                }
+              ]
+            },
+            "description": "Mark notification as read"
+          }
+        }
+      ]
+    },
+    {
+      "name": "FAQs",
+      "item": [
+        {
+          "name": "Create FAQ",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"How do I reset my password?\",\n  \"answer\": \"You can reset your password by clicking the 'Forgot Password' link on the login page.\",\n  \"category\": \"account\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/faqs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "faqs"]
+            },
+            "description": "Create a new FAQ"
+          }
+        },
+        {
+          "name": "Get FAQs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/faqs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "faqs"]
+            },
+            "description": "Get all FAQs"
+          }
+        },
+        {
+          "name": "Update FAQ",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Updated question?\",\n  \"answer\": \"Updated answer\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/faqs/:faq_id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "faqs", ":faq_id"],
+              "variable": [
+                {
+                  "key": "faq_id",
+                  "value": "faq-uuid"
+                }
+              ]
+            },
+            "description": "Update an FAQ"
+          }
+        },
+        {
+          "name": "Delete FAQ",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/faqs/:faq_id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "faqs", ":faq_id"],
+              "variable": [
+                {
+                  "key": "faq_id",
+                  "value": "faq-uuid"
+                }
+              ]
+            },
+            "description": "Delete an FAQ"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Statistics (Admin)",
+      "item": [
+        {
+          "name": "Get Paid Users Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stats/paid-users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stats", "paid-users"]
+            },
+            "description": "Get paid users statistics (Admin only)"
+          }
+        },
+        {
+          "name": "Get Store Owners Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stats/store-owners",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stats", "store-owners"]
+            },
+            "description": "Get store owners statistics (Admin only)"
+          }
+        },
+        {
+          "name": "Get Resellers Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stats/resellers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stats", "resellers"]
+            },
+            "description": "Get resellers statistics (Admin only)"
+          }
+        },
+        {
+          "name": "Get Revenue Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stats/revenue",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stats", "revenue"]
+            },
+            "description": "Get revenue statistics (Admin only)"
+          }
+        },
+        {
+          "name": "Get Recent Activity",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stats/recent-activity",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stats", "recent-activity"]
+            },
+            "description": "Get recent user activity (Admin only)"
+          }
+        },
+        {
+          "name": "Get Recent Feedbacks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stats/recent-feedbacks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stats", "recent-feedbacks"]
+            },
+            "description": "Get recent feedbacks (Admin only)"
+          }
+        },
+        {
+          "name": "Get Quick Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stats/quick-stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stats", "quick-stats"]
+            },
+            "description": "Get quick dashboard statistics (Admin only)"
+          }
+        }
+      ]
+    }
+  ]
+}
