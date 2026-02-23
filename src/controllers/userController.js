@@ -979,6 +979,56 @@ const rejectStoreOwner = [
     }
   },
 ];
+const getUserCounts = async (req, res) => {
+  try {
+    const requester = await User.findById(req.user.userId);
+    if (!requester || requester.role !== 1) {
+      return res.status(403).json({
+        success: false,
+        message: "Only admins can access user counts",
+      });
+    }
+
+    const counts = await User.aggregate([
+      {
+        $match: {
+          role: { $in: [2, 3] } 
+        }
+      },
+      {
+        $group: {
+          _id: "$role",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // default counts
+    let resellerCount = 0;
+    let ownerCount = 0;
+
+    counts.forEach((item) => {
+      if (item._id === 2) resellerCount = item.count;
+      if (item._id === 3) ownerCount = item.count;
+    });
+
+    res.json({
+      success: true,
+      data: {
+        total_users: resellerCount + ownerCount,
+        resellers: resellerCount,
+        store_owners: ownerCount,
+      },
+    });
+  } catch (error) {
+    console.error("Get user counts error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
 
 module.exports = {
   register,
@@ -998,4 +1048,5 @@ module.exports = {
   replyFeedback,
   approveStoreOwner,
   rejectStoreOwner,
+  getUserCounts,
 };

@@ -17,6 +17,7 @@ const {
   replyFeedback,
   approveStoreOwner,
   rejectStoreOwner,
+  getUserCounts,
 } = require("../controllers/userController");
 const { authenticate } = require("../utils/auth");
 const { recordScan, getScans, deleteScan } = require("../controllers/scanController");
@@ -40,8 +41,13 @@ router.get("/feedback", authenticate, getFeedback);
 router.post("/feedback/reply", authenticate, ...replyFeedback);
 router.post("/approve-store-owner", authenticate, ...approveStoreOwner);
 router.post("/reject-store-owner", authenticate, ...rejectStoreOwner);
+<<<<<<< HEAD
 router.post("/scan", authenticate, recordScan);
 router.get("/scans", authenticate, getScans);
 router.delete("/scans/:scan_id", authenticate, deleteScan);
 
+=======
+router.get("/user-count", authenticate, getUserCounts);
+// total users (store owners and resellers)
+>>>>>>> 3dd5ad51cb7bbe20c6c2fbd0000f6545133e69b3
 module.exports = router;
