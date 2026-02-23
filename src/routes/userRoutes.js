@@ -19,6 +19,7 @@ const {
   rejectStoreOwner,
 } = require("../controllers/userController");
 const { authenticate } = require("../utils/auth");
+const { recordScan, getScans, deleteScan } = require("../controllers/scanController");
 
 const router = express.Router();
 
@@ -39,5 +40,8 @@ router.get("/feedback", authenticate, getFeedback);
 router.post("/feedback/reply", authenticate, ...replyFeedback);
 router.post("/approve-store-owner", authenticate, ...approveStoreOwner);
 router.post("/reject-store-owner", authenticate, ...rejectStoreOwner);
+router.post("/scan", authenticate, recordScan);
+router.get("/scans", authenticate, getScans);
+router.delete("/scans/:scan_id", authenticate, deleteScan);
 
 module.exports = router;
