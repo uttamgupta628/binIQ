@@ -20,7 +20,13 @@ const {
   getUserCounts,
 } = require("../controllers/userController");
 const { authenticate } = require("../utils/auth");
-const { recordScan, getScans, deleteScan } = require("../controllers/scanController");
+const {
+  recordScan,
+  getScans,
+  deleteScan,
+  getUserScansAdmin,
+  getAllUsersScansAdmin,
+} = require("../controllers/scanController");
 
 const router = express.Router();
 
@@ -41,13 +47,12 @@ router.get("/feedback", authenticate, getFeedback);
 router.post("/feedback/reply", authenticate, ...replyFeedback);
 router.post("/approve-store-owner", authenticate, ...approveStoreOwner);
 router.post("/reject-store-owner", authenticate, ...rejectStoreOwner);
-<<<<<<< HEAD
 router.post("/scan", authenticate, recordScan);
 router.get("/scans", authenticate, getScans);
 router.delete("/scans/:scan_id", authenticate, deleteScan);
 
-=======
-router.get("/user-count", authenticate, getUserCounts);
-// total users (store owners and resellers)
->>>>>>> 3dd5ad51cb7bbe20c6c2fbd0000f6545133e69b3
+// admin 
+router.get("/all-scans", authenticate, getAllUsersScansAdmin);    
+router.get("/:user_id/scans", authenticate, getUserScansAdmin);
+
 module.exports = router;

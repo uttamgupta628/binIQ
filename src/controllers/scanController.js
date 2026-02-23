@@ -40,7 +40,6 @@ const recordScan = [
       user.scans_used.push(JSON.stringify(scanRecord));
       user.total_scans = user.scans_used.length;
       user.updated_at = Date.now();
-
       await user.save();
 
       return res.status(201).json({
@@ -71,7 +70,7 @@ const getScans = async (req, res) => {
       try {
         return JSON.parse(s);
       } catch {
-        return { qr_data: s, scanned_at: null }; // fallback for raw strings
+        return { qr_data: s, scanned_at: null };
       }
     });
 
@@ -122,4 +121,109 @@ const deleteScan = async (req, res) => {
   }
 };
 
-module.exports = { recordScan, getScans, deleteScan };
+// GET /api/users/:user_id/scans
+// Admin: view a specific user's scans
+const getUserScansAdmin = async (req, res) => {
+  try {
+    const requester = await User.findById(req.user.userId);
+    if (!requester)
+      return res.status(404).json({ message: "Requester not found" });
+    if (requester.role !== 1)
+      return res.status(403).json({
+        success: false,
+        message: "Only admins can access other users' scans",
+      });
+
+    const { user_id } = req.params;
+    const user = await User.findById(user_id).select(
+      "full_name email role total_scans scans_used"
+    );
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const parsedScans = user.scans_used.map((s) => {
+      try {
+        return JSON.parse(s);
+      } catch {
+        return { qr_data: s, scanned_at: null };
+      }
+    });
+
+    return res.json({
+      success: true,
+      user: {
+        _id: user._id,
+        full_name: user.full_name,
+        email: user.email,
+        role: user.role === 2 ? "reseller" : "store_owner",
+        total_scans: user.total_scans,
+        scans_remaining: 100 - user.total_scans,
+      },
+      scans: parsedScans,
+    });
+  } catch (error) {
+    console.error("Get user scans admin error:", error);
+    return res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// GET /api/users/all-scans
+// Admin: view all scans from all users
+const getAllUsersScansAdmin = async (req, res) => {
+  try {
+    const requester = await User.findById(req.user.userId);
+    if (!requester)
+      return res.status(404).json({ message: "Requester not found" });
+    if (requester.role !== 1)
+      return res.status(403).json({
+        success: false,
+        message: "Only admins can access all scans",
+      });
+
+    const users = await User.find({
+      role: { $in: [2, 3] },
+    }).select("full_name email role total_scans scans_used");
+
+    const allUsersScans = users.map((user) => {
+      const parsedScans = user.scans_used.map((s) => {
+        try {
+          return JSON.parse(s);
+        } catch {
+          return { qr_data: s, scanned_at: null };
+        }
+      });
+
+      return {
+        user: {
+          _id: user._id,
+          full_name: user.full_name,
+          email: user.email,
+          role: user.role === 2 ? "reseller" : "store_owner",
+          total_scans: user.total_scans,
+          scans_remaining: 100 - user.total_scans,
+        },
+        scans: parsedScans,
+      };
+    });
+
+    return res.json({
+      success: true,
+      total_users: users.length,
+      total_scans_across_all_users: users.reduce(
+        (sum, u) => sum + u.total_scans,
+        0
+      ),
+      data: allUsersScans,
+    });
+  } catch (error) {
+    console.error("Get all users scans admin error:", error);
+    return res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+module.exports = {
+  recordScan,
+  getScans,
+  deleteScan,
+  getUserScansAdmin,
+  getAllUsersScansAdmin,
+};
