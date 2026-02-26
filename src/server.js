@@ -13,14 +13,14 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const faqRoutes = require("./routes/faqRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const statsRoutes = require("./routes/statsRoutes");
-const paymentRoutes = require('./routes/paymentRoutes');
+const paymentRoutes = require("./routes/Paymentroutes");
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
 
-app.use('/api/payments', paymentRoutes);
+app.use("/api/payments", paymentRoutes);
 // Middleware
 app.use(cors());
 app.use(express.json());
