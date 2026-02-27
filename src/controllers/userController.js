@@ -406,7 +406,7 @@ const getAllStoreOwnerDetails = async (req, res) => {
             total_promotions: user.total_promotions || 0,
             used_promotions: user.used_promotions || 0,
             promotions: user.promotions || [],
-            verified: user.verified || false,
+            status: user.status,
             total_scans: user.total_scans || 0,
             scans_used: user.scans_used || [],
             created_at: user.created_at,
@@ -481,7 +481,7 @@ const getAllResellerDetails = async (req, res) => {
             total_promotions: user.total_promotions || 0,
             used_promotions: user.used_promotions || 0,
             promotions: user.promotions || [],
-            verified: user.verified || false,
+            status: user.status,
             total_scans: user.total_scans || 0,
             scans_used: user.scans_used || [],
             created_at: user.created_at,
@@ -739,9 +739,9 @@ const changePassword = [
 
 const deleteAccount = [
   check("user_id")
-    .optional()
     .notEmpty()
-    .withMessage("User ID is required for admin deletion"),
+    .withMessage("User ID is required"),
+
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty())
@@ -751,15 +751,32 @@ const deleteAccount = [
     const requesterId = req.user.userId;
 
     try {
-      userToDelete = await User.findById(user_id);
+      const requester = await User.findById(requesterId);
+      if (!requester || requester.role !== 1) {
+        return res.status(403).json({
+          message: "Only admins can delete store owners",
+        });
+      }
+
+      const userToDelete = await User.findById(user_id);
       if (!userToDelete)
-        return res.status(404).json({ message: "User to delete not found" });
-      else await User.deleteOne({ _id: userToDelete._id });
-      await Store.deleteOne({ user_id: userToDelete._id });
-      res.json({ message: "Account deleted successfully" });
+        return res.status(404).json({ message: "User not found" });
+
+      await User.deleteOne({ _id: user_id });
+
+      await Store.deleteOne({ user_id: user_id });
+
+      res.json({
+        success: true,
+        message: "Account deleted successfully",
+      });
+
     } catch (error) {
       console.error("Delete account error:", error);
-      res.status(500).json({ message: "Server error", error: error.message });
+      res.status(500).json({
+        message: "Server error",
+        error: error.message,
+      });
     }
   },
 ];
@@ -906,7 +923,7 @@ const approveStoreOwner = [
       if (user.role !== 3)
         return res.status(400).json({ message: "User is not a store owner" });
 
-      user.verified = true;
+      user.status = "approved";
       await user.save();
 
       const notification = new Notification({
@@ -955,7 +972,7 @@ const rejectStoreOwner = [
       if (user.role !== 3)
         return res.status(400).json({ message: "User is not a store owner" });
 
-      user.verified = false;
+      user.status = "rejected";
       await user.save();
 
       const notification = new Notification({
