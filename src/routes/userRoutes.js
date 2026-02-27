@@ -18,6 +18,7 @@ const {
   approveStoreOwner,
   rejectStoreOwner,
   getUserCounts,
+  getUserMetrics,
 } = require("../controllers/userController");
 const { authenticate } = require("../utils/auth");
 const {

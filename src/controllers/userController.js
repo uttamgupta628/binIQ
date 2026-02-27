@@ -406,7 +406,7 @@ const getAllStoreOwnerDetails = async (req, res) => {
             total_promotions: user.total_promotions || 0,
             used_promotions: user.used_promotions || 0,
             promotions: user.promotions || [],
-            verified: user.verified || false,
+            status: user.status,
             total_scans: user.total_scans || 0,
             scans_used: user.scans_used || [],
             created_at: user.created_at,
@@ -481,7 +481,7 @@ const getAllResellerDetails = async (req, res) => {
             total_promotions: user.total_promotions || 0,
             used_promotions: user.used_promotions || 0,
             promotions: user.promotions || [],
-            verified: user.verified || false,
+            status: user.status,
             total_scans: user.total_scans || 0,
             scans_used: user.scans_used || [],
             created_at: user.created_at,
@@ -739,9 +739,9 @@ const changePassword = [
 
 const deleteAccount = [
   check("user_id")
-    .optional()
     .notEmpty()
-    .withMessage("User ID is required for admin deletion"),
+    .withMessage("User ID is required"),
+
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty())
@@ -751,15 +751,32 @@ const deleteAccount = [
     const requesterId = req.user.userId;
 
     try {
-      userToDelete = await User.findById(user_id);
+      const requester = await User.findById(requesterId);
+      if (!requester || requester.role !== 1) {
+        return res.status(403).json({
+          message: "Only admins can delete store owners",
+        });
+      }
+
+      const userToDelete = await User.findById(user_id);
       if (!userToDelete)
-        return res.status(404).json({ message: "User to delete not found" });
-      else await User.deleteOne({ _id: userToDelete._id });
-      await Store.deleteOne({ user_id: userToDelete._id });
-      res.json({ message: "Account deleted successfully" });
+        return res.status(404).json({ message: "User not found" });
+
+      await User.deleteOne({ _id: user_id });
+
+      await Store.deleteOne({ user_id: user_id });
+
+      res.json({
+        success: true,
+        message: "Account deleted successfully",
+      });
+
     } catch (error) {
       console.error("Delete account error:", error);
-      res.status(500).json({ message: "Server error", error: error.message });
+      res.status(500).json({
+        message: "Server error",
+        error: error.message,
+      });
     }
   },
 ];
@@ -906,7 +923,7 @@ const approveStoreOwner = [
       if (user.role !== 3)
         return res.status(400).json({ message: "User is not a store owner" });
 
-      user.verified = true;
+      user.status = "approved";
       await user.save();
 
       const notification = new Notification({
@@ -955,7 +972,7 @@ const rejectStoreOwner = [
       if (user.role !== 3)
         return res.status(400).json({ message: "User is not a store owner" });
 
-      user.verified = false;
+      user.status = "rejected";
       await user.save();
 
       const notification = new Notification({
@@ -985,32 +1002,58 @@ const getUserCounts = async (req, res) => {
     if (!requester || requester.role !== 1) {
       return res.status(403).json({
         success: false,
-        message: "Only admins can access user counts",
+        message: "Only admins can access user stats",
       });
     }
+    const now = new Date();
+    const last30Days = new Date();
+    last30Days.setDate(now.getDate() - 30);
 
-    const counts = await User.aggregate([
+    const last60Days = new Date();
+    last60Days.setDate(now.getDate() - 60);
+
+    const totalCounts = await User.aggregate([
       {
         $match: {
-          role: { $in: [2, 3] } 
-        }
+          role: { $in: [2, 3] },
+        },
       },
       {
         $group: {
           _id: "$role",
-          count: { $sum: 1 }
-        }
-      }
+          count: { $sum: 1 },
+        },
+      },
     ]);
 
-    // default counts
     let resellerCount = 0;
     let ownerCount = 0;
 
-    counts.forEach((item) => {
+    totalCounts.forEach((item) => {
       if (item._id === 2) resellerCount = item.count;
       if (item._id === 3) ownerCount = item.count;
     });
+
+    const currentMonthUsers = await User.countDocuments({
+      role: { $in: [2, 3] },
+      created_at: { $gte: last30Days, $lte: now },
+    });
+
+    const previousMonthUsers = await User.countDocuments({
+      role: { $in: [2, 3] },
+      created_at: { $gte: last60Days, $lt: last30Days },
+    });
+
+    let percentageChange = 0;
+
+    if (previousMonthUsers === 0 && currentMonthUsers > 0) {
+      percentageChange = 100;
+    } else if (previousMonthUsers > 0) {
+      percentageChange =
+        ((currentMonthUsers - previousMonthUsers) / previousMonthUsers) * 100;
+    }
+
+    percentageChange = Number(percentageChange.toFixed(2));
 
     res.json({
       success: true,
@@ -1018,10 +1061,16 @@ const getUserCounts = async (req, res) => {
         total_users: resellerCount + ownerCount,
         resellers: resellerCount,
         store_owners: ownerCount,
+
+        monthly_stats: {
+          current_month_users: currentMonthUsers,
+          previous_month_users: previousMonthUsers,
+          percentage_change: percentageChange,
+        },
       },
     });
   } catch (error) {
-    console.error("Get user counts error:", error);
+    console.error("Get user stats error:", error);
     res.status(500).json({
       success: false,
       message: "Server error",
