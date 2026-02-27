@@ -41,7 +41,11 @@ const userSchema = new mongoose.Schema({
   total_promotions: { type: Number, default: 0 }, // Total promotions allowed
   used_promotions: { type: Number, default: 0 }, // Promotions used
   promotions: [{ type: String, ref: "Promotion", default: [] }], // Reference to Promotion IDs
-  verified: { type: Boolean, default: false },
+  status: {
+  type: String,
+  enum: ["pending", "approved", "rejected"],
+  default: "pending",
+},
   total_scans: { type: Number, default: 0 },
   scans_used: [{ type: String, default: [] }],
   created_at: { type: Date, default: Date.now },
