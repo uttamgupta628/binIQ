@@ -985,32 +985,58 @@ const getUserCounts = async (req, res) => {
     if (!requester || requester.role !== 1) {
       return res.status(403).json({
         success: false,
-        message: "Only admins can access user counts",
+        message: "Only admins can access user stats",
       });
     }
+    const now = new Date();
+    const last30Days = new Date();
+    last30Days.setDate(now.getDate() - 30);
 
-    const counts = await User.aggregate([
+    const last60Days = new Date();
+    last60Days.setDate(now.getDate() - 60);
+
+    const totalCounts = await User.aggregate([
       {
         $match: {
-          role: { $in: [2, 3] } 
-        }
+          role: { $in: [2, 3] },
+        },
       },
       {
         $group: {
           _id: "$role",
-          count: { $sum: 1 }
-        }
-      }
+          count: { $sum: 1 },
+        },
+      },
     ]);
 
-    // default counts
     let resellerCount = 0;
     let ownerCount = 0;
 
-    counts.forEach((item) => {
+    totalCounts.forEach((item) => {
       if (item._id === 2) resellerCount = item.count;
       if (item._id === 3) ownerCount = item.count;
     });
+
+    const currentMonthUsers = await User.countDocuments({
+      role: { $in: [2, 3] },
+      created_at: { $gte: last30Days, $lte: now },
+    });
+
+    const previousMonthUsers = await User.countDocuments({
+      role: { $in: [2, 3] },
+      created_at: { $gte: last60Days, $lt: last30Days },
+    });
+
+    let percentageChange = 0;
+
+    if (previousMonthUsers === 0 && currentMonthUsers > 0) {
+      percentageChange = 100;
+    } else if (previousMonthUsers > 0) {
+      percentageChange =
+        ((currentMonthUsers - previousMonthUsers) / previousMonthUsers) * 100;
+    }
+
+    percentageChange = Number(percentageChange.toFixed(2));
 
     res.json({
       success: true,
@@ -1018,10 +1044,16 @@ const getUserCounts = async (req, res) => {
         total_users: resellerCount + ownerCount,
         resellers: resellerCount,
         store_owners: ownerCount,
+
+        monthly_stats: {
+          current_month_users: currentMonthUsers,
+          previous_month_users: previousMonthUsers,
+          percentage_change: percentageChange,
+        },
       },
     });
   } catch (error) {
-    console.error("Get user counts error:", error);
+    console.error("Get user stats error:", error);
     res.status(500).json({
       success: false,
       message: "Server error",

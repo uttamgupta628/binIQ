@@ -18,6 +18,7 @@ const {
   approveStoreOwner,
   rejectStoreOwner,
   getUserCounts,
+  getUserMetrics,
 } = require("../controllers/userController");
 const { authenticate } = require("../utils/auth");
 
@@ -41,5 +42,5 @@ router.post("/feedback/reply", authenticate, ...replyFeedback);
 router.post("/approve-store-owner", authenticate, ...approveStoreOwner);
 router.post("/reject-store-owner", authenticate, ...rejectStoreOwner);
 router.get("/user-count", authenticate, getUserCounts);
-// total users (store owners and resellers)
+
 module.exports = router;
