@@ -21,6 +21,13 @@ const {
   getUserMetrics,
 } = require("../controllers/userController");
 const { authenticate } = require("../utils/auth");
+const {
+  recordScan,
+  getScans,
+  deleteScan,
+  getUserScansAdmin,
+  getAllUsersScansAdmin,
+} = require("../controllers/scanController");
 
 const router = express.Router();
 
@@ -41,6 +48,12 @@ router.get("/feedback", authenticate, getFeedback);
 router.post("/feedback/reply", authenticate, ...replyFeedback);
 router.post("/approve-store-owner", authenticate, ...approveStoreOwner);
 router.post("/reject-store-owner", authenticate, ...rejectStoreOwner);
-router.get("/user-count", authenticate, getUserCounts);
+router.post("/scan", authenticate, recordScan);
+router.get("/scans", authenticate, getScans);
+router.delete("/scans/:scan_id", authenticate, deleteScan);
+
+// admin 
+router.get("/all-scans", authenticate, getAllUsersScansAdmin);    
+router.get("/:user_id/scans", authenticate, getUserScansAdmin);
 
 module.exports = router;

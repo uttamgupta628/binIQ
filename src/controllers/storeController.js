@@ -1,4 +1,4 @@
-const { check, validationResult } = require("express-validator");
+const { check, validationResult, param, query } = require("express-validator");
 const Store = require("../models/Store");
 const User = require("../models/User");
 
@@ -148,7 +148,6 @@ const updateStore = async (req, res) => {
       message: error.message,
       stack: error.stack,
       user_id: req.body.user_id,
-      updates,
       authenticatedUserId: req.user.userId,
     });
     res.status(500).json({ message: "Server error", error: error.message });
@@ -334,8 +333,9 @@ const commentOnStore = [
   },
 ];
 
+// ✅ FIXED: use param() instead of check() since store_id comes from req.params
 const getStoreDetails = [
-  check("store_id").notEmpty().withMessage("Store ID is required"),
+  param("store_id").notEmpty().withMessage("Store ID is required"),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty())
@@ -418,8 +418,9 @@ const getFavoriteStores = async (req, res) => {
   }
 };
 
+// ✅ FIXED: use param() instead of check() since user_id comes from req.params
 const getFavoriteStoresByUserId = [
-  check("user_id").notEmpty().withMessage("User ID is required"),
+  param("user_id").notEmpty().withMessage("User ID is required"),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty())
@@ -452,18 +453,19 @@ const getFavoriteStoresByUserId = [
   },
 ];
 
+// ✅ FIXED: use query() instead of check() since params come from req.query
 const getNearbyStores = [
-  check("latitude")
+  query("latitude")
     .isFloat({ min: -90, max: 90 })
     .withMessage("Latitude must be between -90 and 90"),
-  check("longitude")
+  query("longitude")
     .isFloat({ min: -180, max: 180 })
     .withMessage("Longitude must be between -180 and 180"),
-  check("radius")
+  query("radius")
     .optional()
     .isFloat({ min: 0 })
     .withMessage("Radius must be a positive number"),
-  check("limit")
+  query("limit")
     .optional()
     .isInt({ min: 1 })
     .withMessage("Limit must be a positive integer"),
