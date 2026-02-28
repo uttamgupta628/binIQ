@@ -51,6 +51,7 @@ router.post("/reject-store-owner", authenticate, ...rejectStoreOwner);
 router.post("/scan", authenticate, recordScan);
 router.get("/scans", authenticate, getScans);
 router.delete("/scans/:scan_id", authenticate, deleteScan);
+router.get("/user-count", authenticate, getUserCounts);
 
 // admin 
 router.get("/all-scans", authenticate, getAllUsersScansAdmin);    
