@@ -444,62 +444,41 @@ const getAllStoreOwnerDetails = async (req, res) => {
 const getAllResellerDetails = async (req, res) => {
   try {
     const requester = await User.findById(req.user.userId);
+
     if (!requester || requester.role !== 1) {
       return res.status(403).json({
         success: false,
-        message: "Only admins can access all users details",
+        message: "Only admins can access all reseller details",
       });
     }
 
     const users = await User.find({ role: 2 })
-      .select("-password -card_information")
+      .select("-password ")
       .populate("subscription")
       .populate({
         path: "promotions",
         select:
           "category_id title description upc_id tags price status start_date end_date visibility created_at updated_at",
         populate: { path: "category_id", select: "category_name" },
-      });
-
-    const userDetails = await Promise.all(
-      users.map(async (user) => {
-        return {
-          user: {
-            _id: user._id,
-            full_name: user.full_name,
-            store_name: user.store_name || null,
-            email: user.email,
-            role: "reseller",
-            dob: user.dob || null,
-            gender: user.gender || null,
-            phone_number: user.phone_number || null,
-            address: user.address || null,
-            expertise_level: user.expertise_level || null,
-            profile_image: user.profile_image || null,
-            subscription: user.subscription || null,
-            subscription_end_time: user.subscription_end_time || null,
-            total_promotions: user.total_promotions || 0,
-            used_promotions: user.used_promotions || 0,
-            promotions: user.promotions || [],
-            status: user.status,
-            total_scans: user.total_scans || 0,
-            scans_used: user.scans_used || [],
-            created_at: user.created_at,
-            updated_at: user.updated_at,
-          },
-        };
       })
-    );
+      .lean();
+
+    const userDetails = users.map(user => ({
+      user
+    }));
 
     res.json({
       success: true,
       data: userDetails,
     });
+
   } catch (error) {
     console.error("Get all resellers details error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 
