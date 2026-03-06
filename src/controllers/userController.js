@@ -45,62 +45,92 @@ const register = [
   check("role")
     .isIn([1, 2, 3])
     .withMessage("Role must be 1 (Admin), 2 (Reseller), or 3 (Store Owner)"),
-  
+
   // Store Owner specific validation
   check("store_name")
     .if((value, { req }) => req.body.role === 3)
     .notEmpty()
     .withMessage("Store name is required for Store Owner"),
-  
+
   // Reseller Premium Plan specific validations
   // These only apply when role is 2 AND selected_plan is "premium"
   check("dob")
-    .if((value, { req }) => req.body.role === 2 && req.body.selected_plan === "premium")
+    .if(
+      (value, { req }) =>
+        req.body.role === 2 && req.body.selected_plan === "premium",
+    )
     .notEmpty()
     .isISO8601()
     .withMessage("Valid date of birth is required for Premium Plan"),
   check("gender")
-    .if((value, { req }) => req.body.role === 2 && req.body.selected_plan === "premium")
+    .if(
+      (value, { req }) =>
+        req.body.role === 2 && req.body.selected_plan === "premium",
+    )
     .isIn(["male", "female", "other"])
     .withMessage("Gender must be male, female, or other for Premium Plan"),
   check("phone_number")
-    .if((value, { req }) => req.body.role === 2 && req.body.selected_plan === "premium")
+    .if(
+      (value, { req }) =>
+        req.body.role === 2 && req.body.selected_plan === "premium",
+    )
     .notEmpty()
     .matches(/^\+?[1-9]\d{1,14}$/)
     .withMessage("Valid phone number is required for Premium Plan"),
   check("address")
-    .if((value, { req }) => req.body.role === 2 && req.body.selected_plan === "premium")
+    .if(
+      (value, { req }) =>
+        req.body.role === 2 && req.body.selected_plan === "premium",
+    )
     .notEmpty()
     .withMessage("Address is required for Premium Plan"),
   check("card_information.card_number")
-    .if((value, { req }) => req.body.role === 2 && req.body.selected_plan === "premium")
+    .if(
+      (value, { req }) =>
+        req.body.role === 2 && req.body.selected_plan === "premium",
+    )
     .notEmpty()
     .matches(/^\d{16}$/)
     .withMessage("Card number must be 16 digits for Premium Plan"),
   check("card_information.cardholder_name")
-    .if((value, { req }) => req.body.role === 2 && req.body.selected_plan === "premium")
+    .if(
+      (value, { req }) =>
+        req.body.role === 2 && req.body.selected_plan === "premium",
+    )
     .notEmpty()
     .withMessage("Cardholder name is required for Premium Plan"),
   check("card_information.expiry_month")
-    .if((value, { req }) => req.body.role === 2 && req.body.selected_plan === "premium")
+    .if(
+      (value, { req }) =>
+        req.body.role === 2 && req.body.selected_plan === "premium",
+    )
     .notEmpty()
     .matches(/^(0[1-9]|1[0-2])$/)
     .withMessage("Valid expiry month (01-12) is required for Premium Plan"),
   check("card_information.expiry_year")
-    .if((value, { req }) => req.body.role === 2 && req.body.selected_plan === "premium")
+    .if(
+      (value, { req }) =>
+        req.body.role === 2 && req.body.selected_plan === "premium",
+    )
     .notEmpty()
     .matches(/^\d{4}$/)
     .withMessage("Valid expiry year is required for Premium Plan"),
   check("card_information.cvc")
-    .if((value, { req }) => req.body.role === 2 && req.body.selected_plan === "premium")
+    .if(
+      (value, { req }) =>
+        req.body.role === 2 && req.body.selected_plan === "premium",
+    )
     .notEmpty()
     .matches(/^\d{3,4}$/)
     .withMessage("Valid CVC (3-4 digits) is required for Premium Plan"),
   check("expertise_level")
-    .if((value, { req }) => req.body.role === 2 && req.body.selected_plan === "premium")
+    .if(
+      (value, { req }) =>
+        req.body.role === 2 && req.body.selected_plan === "premium",
+    )
     .isIn(["beginner", "intermediate", "expert"])
     .withMessage(
-      "Expertise level must be beginner, intermediate, or expert for Premium Plan"
+      "Expertise level must be beginner, intermediate, or expert for Premium Plan",
     ),
   async (req, res) => {
     const errors = validationResult(req);
@@ -136,7 +166,7 @@ const register = [
           .json({ success: false, message: "Email already exists" });
 
       const hashedPassword = await bcrypt.hash(password, 10);
-      
+
       // Create user object with basic fields
       const userData = {
         _id: uuidv4(),
@@ -426,7 +456,7 @@ const getAllStoreOwnerDetails = async (req, res) => {
               }
             : null,
         };
-      })
+      }),
     );
 
     res.json({
@@ -488,7 +518,7 @@ const getAllResellerDetails = async (req, res) => {
             updated_at: user.updated_at,
           },
         };
-      })
+      }),
     );
 
     res.json({
@@ -620,7 +650,7 @@ const forgotPassword = [
       await sendMail(
         email,
         "Password Reset OTP",
-        `Your OTP for password reset is: ${otp}`
+        `Your OTP for password reset is: ${otp}`,
       );
       res.status(200).json({ message: "OTP sent to email" });
     } catch (error) {
@@ -668,7 +698,7 @@ const resetPassword = [
   check("confirm_password")
     .custom((value, { req }) => value === req.body.new_password)
     .withMessage("Passwords do not match"),
-  
+
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty())
@@ -688,21 +718,19 @@ const resetPassword = [
       // ✅ FIXED: Hash the password before saving!
       const hashedPassword = await bcrypt.hash(new_password, 10);
       user.password = hashedPassword;
-      
+
       user.resetPasswordToken = null;
       user.resetPasswordExpires = null;
 
       await user.save();
 
       res.json({ message: "Password reset successfully" });
-
     } catch (error) {
       console.error("Reset password error:", error);
       res.status(500).json({ message: "Server error", error: error.message });
     }
   },
 ];
-
 
 const changePassword = [
   check("old_password").notEmpty().withMessage("Old password is required"),
@@ -738,9 +766,7 @@ const changePassword = [
 ];
 
 const deleteAccount = [
-  check("user_id")
-    .notEmpty()
-    .withMessage("User ID is required"),
+  check("user_id").notEmpty().withMessage("User ID is required"),
 
   async (req, res) => {
     const errors = validationResult(req);
@@ -770,7 +796,6 @@ const deleteAccount = [
         success: true,
         message: "Account deleted successfully",
       });
-
     } catch (error) {
       console.error("Delete account error:", error);
       res.status(500).json({
@@ -828,7 +853,7 @@ const submitFeedback = [
           "New Feedback Received",
           `Feedback from ${user.full_name} (${user.email}, ${
             user.role === 2 ? "reseller" : "store_owner"
-          }): Rating: ${rating}/5, Suggestion: ${suggestion}`
+          }): Rating: ${rating}/5, Suggestion: ${suggestion}`,
         );
       }
 
@@ -887,7 +912,7 @@ const replyFeedback = [
         await sendMail(
           feedbackUser.email,
           "Feedback Reply",
-          `Admin replied to your feedback: ${reply}`
+          `Admin replied to your feedback: ${reply}`,
         );
       }
 
@@ -937,7 +962,7 @@ const approveStoreOwner = [
       await sendMail(
         user.email,
         "Account Verified",
-        "Your store owner account has been verified."
+        "Your store owner account has been verified.",
       );
 
       res.json({ message: "Store owner approved successfully" });
@@ -986,7 +1011,7 @@ const rejectStoreOwner = [
       await sendMail(
         user.email,
         "Account Verification Rejected",
-        "Your store owner account verification was rejected."
+        "Your store owner account verification was rejected.",
       );
 
       res.json({ message: "Store owner rejected successfully" });

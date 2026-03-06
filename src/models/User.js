@@ -34,7 +34,7 @@ const userSchema = new mongoose.Schema({
     ref: "Subscription",
     default: null,
   },
-  
+
   resetPasswordToken: { type: String, default: null },
   resetPasswordExpires: { type: Date, default: null },
   subscription_end_time: { type: Date, default: null },
@@ -42,10 +42,10 @@ const userSchema = new mongoose.Schema({
   used_promotions: { type: Number, default: 0 }, // Promotions used
   promotions: [{ type: String, ref: "Promotion", default: [] }], // Reference to Promotion IDs
   status: {
-  type: String,
-  enum: ["pending", "approved", "rejected"],
-  default: "pending",
-},
+    type: String,
+    enum: ["pending", "approved", "rejected"],
+    default: "pending",
+  },
   total_scans: { type: Number, default: 0 },
   scans_used: [{ type: String, default: [] }],
   created_at: { type: Date, default: Date.now },
