@@ -19,6 +19,8 @@ const {
   rejectStoreOwner,
   getUserCounts,
   getUserMetrics,
+  adminchangePassword,
+  createStoreOwner,
 } = require("../controllers/userController");
 const { authenticate } = require("../utils/auth");
 const {
@@ -52,6 +54,8 @@ router.post("/scan", authenticate, recordScan);
 router.get("/scans", authenticate, getScans);
 router.delete("/scans/:scan_id", authenticate, deleteScan);
 router.get("/user-count", authenticate, getUserCounts);
+router.patch("/admin-change-password", authenticate, ...adminchangePassword);
+router.post("/create-store-owner", authenticate, createStoreOwner);
 
 // admin 
 router.get("/all-scans", authenticate, getAllUsersScansAdmin);    
