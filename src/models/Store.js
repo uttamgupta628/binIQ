@@ -33,6 +33,10 @@ const storeSchema = new mongoose.Schema({
   followers: { type: Number, default: 0 }, // Updated to reflect followed_by count
   likes: { type: Number, default: 0 }, // Updated to reflect liked_by count
   verified: { type: Boolean, default: false },
+  checked_in_by: {
+    type: [String],
+    default: [],
+  },
   store_image: { type: String, default: null },
   ratings: { type: Number, default: 0 },
   rating_count: { type: Number, default: 0 },

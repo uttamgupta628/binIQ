@@ -37,51 +37,54 @@ const createPromotion = [
       start_date,
       end_date,
       visibility,
+      banner_image,
     } = req.body;
     const userId = req.user.userId;
 
     try {
-      // Check if user is a store owner
+      // ✅ Check if user exists
       const user = await User.findById(userId).populate("subscription");
       if (!user)
         return res
           .status(404)
           .json({ success: false, message: "User not found" });
+
+      // ✅ Check if user is a store owner
       if (user.role !== 3) {
-        return res
-          .status(403)
-          .json({
-            success: false,
-            message: "Only store owners can create promotions",
-          });
+        return res.status(403).json({
+          success: false,
+          message: "Only store owners can create promotions",
+        });
       }
 
-      // Check for active subscription
+      // ✅ Check for active subscription
       if (
         !user.subscription ||
         !user.subscription_end_time ||
         moment().isAfter(user.subscription_end_time)
       ) {
-        return res
-          .status(403)
-          .json({ success: false, message: "No active subscription" });
+        return res.status(403).json({
+          success: false,
+          message: "No active subscription. Please subscribe to a plan first.",
+        });
       }
 
-      // Check promotion limit
+      // ✅ Check promotion limit
       if (user.used_promotions >= user.total_promotions) {
-        return res
-          .status(403)
-          .json({ success: false, message: "Promotion limit reached" });
+        return res.status(403).json({
+          success: false,
+          message: `Promotion limit reached. You have used ${user.used_promotions} of ${user.total_promotions} promotions.`,
+        });
       }
 
-      // Validate category
+      // ✅ Validate category
       const category = await ProductCategory.findById(category_id);
       if (!category)
         return res
           .status(404)
           .json({ success: false, message: "Category not found" });
 
-      // Check for duplicate UPC ID
+      // ✅ Check for duplicate UPC ID
       const existingPromotion = await Promotion.findOne({ upc_id });
       if (existingPromotion) {
         return res
@@ -89,6 +92,7 @@ const createPromotion = [
           .json({ success: false, message: "UPC ID already exists" });
       }
 
+      // ✅ Create promotion
       const promotion = new Promotion({
         user_id: userId,
         category_id,
@@ -101,11 +105,12 @@ const createPromotion = [
         start_date: new Date(start_date),
         end_date: new Date(end_date),
         visibility,
+        banner_image: banner_image || null,
       });
 
       await promotion.save();
 
-      // Update user promotions
+      // ✅ Update user promotions count
       user.used_promotions += 1;
       user.promotions.push(promotion._id);
       await user.save();
@@ -120,13 +125,11 @@ const createPromotion = [
         message: error.message,
         stack: error.stack,
       });
-      res
-        .status(500)
-        .json({
-          success: false,
-          message: "Server error",
-          error: error.message,
-        });
+      res.status(500).json({
+        success: false,
+        message: "Server error",
+        error: error.message,
+      });
     }
   },
 ];
@@ -142,15 +145,18 @@ const getPromotions = async (req, res) => {
     const promotions = await Promotion.find(query)
       .populate("category_id", "category_name")
       .sort({ start_date: -1 });
+
     res.json({ success: true, data: promotions });
   } catch (error) {
     console.error("Get promotions error:", {
       message: error.message,
       stack: error.stack,
     });
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 
@@ -226,19 +232,18 @@ const updatePromotion = [
 
       Object.assign(promotion, updates, { updated_at: Date.now() });
       await promotion.save();
+
       res.json({ success: true, message: "Promotion updated successfully" });
     } catch (error) {
       console.error("Update promotion error:", {
         message: error.message,
         stack: error.stack,
       });
-      res
-        .status(500)
-        .json({
-          success: false,
-          message: "Server error",
-          error: error.message,
-        });
+      res.status(500).json({
+        success: false,
+        message: "Server error",
+        error: error.message,
+      });
     }
   },
 ];
@@ -259,7 +264,7 @@ const deletePromotion = async (req, res) => {
 
     await Promotion.deleteOne({ _id: promotion_id });
 
-    // Decrement used_promotions
+    // ✅ Decrement used_promotions and remove from array
     const user = await User.findById(userId);
     if (user && user.used_promotions > 0) {
       user.used_promotions -= 1;
@@ -275,9 +280,11 @@ const deletePromotion = async (req, res) => {
       message: error.message,
       stack: error.stack,
     });
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 
