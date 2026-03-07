@@ -474,15 +474,16 @@ const getAllStoreOwnerDetails = async (req, res) => {
 const getAllResellerDetails = async (req, res) => {
   try {
     const requester = await User.findById(req.user.userId);
+
     if (!requester || requester.role !== 1) {
       return res.status(403).json({
         success: false,
-        message: "Only admins can access all users details",
+        message: "Only admins can access all reseller details",
       });
     }
 
     const users = await User.find({ role: 2 })
-      .select("-password -card_information")
+      .select("-password ")
       .populate("subscription")
       .populate({
         path: "promotions",
@@ -527,9 +528,11 @@ const getAllResellerDetails = async (req, res) => {
     });
   } catch (error) {
     console.error("Get all resellers details error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 
