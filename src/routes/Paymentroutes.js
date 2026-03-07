@@ -1,9 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const {createPaymentIntent, stripeWebhook} = require('../controllers/paymentController');
+const { createPaymentIntent, confirmVerification, stripeWebhook } = require('../controllers/paymentController');
+const { authenticate } = require('../utils/auth');
 
-router.post('/webhook', express.raw({type: 'application/json'}), stripeWebhook);
+// Webhook - raw body already applied in server.js
+router.post('/webhook', stripeWebhook);
 
-router.post('/create-payment-intent', createPaymentIntent);
+// Protected routes
+router.post('/create-payment-intent', authenticate, createPaymentIntent);
+router.post('/confirm-verification', authenticate, confirmVerification);
 
 module.exports = router;
