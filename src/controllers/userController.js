@@ -490,37 +490,12 @@ const getAllResellerDetails = async (req, res) => {
         select:
           "category_id title description upc_id tags price status start_date end_date visibility created_at updated_at",
         populate: { path: "category_id", select: "category_name" },
-      });
+      })
+      .lean();
 
-    const userDetails = await Promise.all(
-      users.map(async (user) => {
-        return {
-          user: {
-            _id: user._id,
-            full_name: user.full_name,
-            store_name: user.store_name || null,
-            email: user.email,
-            role: "reseller",
-            dob: user.dob || null,
-            gender: user.gender || null,
-            phone_number: user.phone_number || null,
-            address: user.address || null,
-            expertise_level: user.expertise_level || null,
-            profile_image: user.profile_image || null,
-            subscription: user.subscription || null,
-            subscription_end_time: user.subscription_end_time || null,
-            total_promotions: user.total_promotions || 0,
-            used_promotions: user.used_promotions || 0,
-            promotions: user.promotions || [],
-            status: user.status,
-            total_scans: user.total_scans || 0,
-            scans_used: user.scans_used || [],
-            created_at: user.created_at,
-            updated_at: user.updated_at,
-          },
-        };
-      }),
-    );
+    const userDetails = users.map((user) => ({
+      user,
+    }));
 
     res.json({
       success: true,
@@ -1106,7 +1081,162 @@ const getUserCounts = async (req, res) => {
     });
   }
 };
+const adminchangePassword = [
+  check("old_password").notEmpty().withMessage("Old password is required"),
+  check("new_password")
+    .isLength({ min: 6 })
+    .withMessage("New password must be at least 6 characters"),
 
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty())
+      return res.status(400).json({ errors: errors.array() });
+
+    const { old_password, new_password } = req.body;
+    const userId = req.user.userId;
+
+    try {
+      const user = await User.findById(userId);
+
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      if (user.role !== 1) {
+        return res.status(403).json({
+          message: "Only admin can change password using this route",
+        });
+      }
+
+      const isMatch = await bcrypt.compare(old_password, user.password);
+
+      if (!isMatch)
+        return res.status(400).json({
+          message: "Invalid old password",
+        });
+
+      const hashedPassword = await bcrypt.hash(new_password, 10);
+
+      user.password = hashedPassword;
+      user.updated_at = Date.now();
+
+      await user.save();
+
+      res.json({
+        success: true,
+        message: "Admin password changed successfully",
+      });
+    } catch (error) {
+      console.error("Change password error:", error);
+      res.status(500).json({
+        message: "Server error",
+        error: error.message,
+      });
+    }
+  },
+];
+const createStoreOwner = [
+  check("full_name").notEmpty().withMessage("Full name is required"),
+  check("store_name").notEmpty().withMessage("Store name is required"),
+  check("email").isEmail().withMessage("Valid email is required"),
+  check("password")
+    .isLength({ min: 6 })
+    .withMessage("Password must be at least 6 characters"),
+
+  async (req, res) => {
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty())
+      return res.status(400).json({
+        success: false,
+        errors: errors.array(),
+      });
+
+    const {
+      full_name,
+      store_name,
+      email,
+      password,
+      dob,
+      gender,
+      phone_number,
+      address,
+      expertise_level,
+    } = req.body;
+
+    try {
+      const requester = await User.findById(req.user.userId);
+
+      if (!requester || requester.role !== 1) {
+        return res.status(403).json({
+          success: false,
+          message: "Only admins can create store owners",
+        });
+      }
+
+      const existingUser = await User.findOne({ email });
+
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: "Email already exists",
+        });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const user = new User({
+        _id: uuidv4(),
+        full_name,
+        store_name,
+        email,
+        password: hashedPassword,
+        role: 3, // Store Owner
+        dob: dob ? new Date(dob) : null,
+        gender: gender || null,
+        phone_number: phone_number || null,
+        address: address || null,
+        expertise_level: expertise_level || null,
+        status: "pending",
+      });
+
+      await user.save();
+
+      const store = new Store({
+        _id: uuidv4(),
+        user_id: user._id,
+        store_name,
+        user_latitude: null,
+        user_longitude: null,
+        address: address || null,
+        favorited_by: [],
+        liked_by: [],
+        followed_by: [],
+        comments: [],
+      });
+
+      await store.save();
+
+      res.status(201).json({
+        success: true,
+        message: "Store owner created successfully",
+        data: {
+          user_id: user._id,
+          full_name: user.full_name,
+          store_name: user.store_name,
+          email: user.email,
+          status: user.status,
+        },
+      });
+    } catch (error) {
+      console.error("Create store owner error:", error);
+
+      res.status(500).json({
+        success: false,
+        message: "Server error",
+        error: error.message,
+      });
+    }
+  },
+];
 module.exports = {
   register,
   login,
@@ -1126,4 +1256,6 @@ module.exports = {
   approveStoreOwner,
   rejectStoreOwner,
   getUserCounts,
+  adminchangePassword,
+  createStoreOwner,
 };
