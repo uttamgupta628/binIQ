@@ -138,7 +138,8 @@ const getPromotions = async (req, res) => {
   const { status, visibility } = req.query;
 
   try {
-    const query = { user_id: req.user.userId };
+    // ← change this line
+    const query = { user_id: req.query.user_id || req.user.userId };
     if (status) query.status = status;
     if (visibility) query.visibility = visibility;
 
@@ -148,15 +149,9 @@ const getPromotions = async (req, res) => {
 
     res.json({ success: true, data: promotions });
   } catch (error) {
-    console.error("Get promotions error:", {
-      message: error.message,
-      stack: error.stack,
-    });
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message,
-    });
+    res
+      .status(500)
+      .json({ success: false, message: "Server error", error: error.message });
   }
 };
 
@@ -269,7 +264,7 @@ const deletePromotion = async (req, res) => {
     if (user && user.used_promotions > 0) {
       user.used_promotions -= 1;
       user.promotions = user.promotions.filter(
-        (id) => id.toString() !== promotion_id
+        (id) => id.toString() !== promotion_id,
       );
       await user.save();
     }
