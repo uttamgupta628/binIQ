@@ -2,6 +2,9 @@ const { check, validationResult } = require("express-validator");
 const Product = require("../models/Product");
 const ProductCategory = require("../models/ProductCategory");
 
+// ─── Threshold: number of likes before a product auto-promotes to Trending ───
+const TRENDING_LIKE_THRESHOLD = 5;
+
 const createProduct = [
   check("category_id").notEmpty().withMessage("Category ID is required"),
   check("title").notEmpty().withMessage("Title is required"),
@@ -48,15 +51,18 @@ const createProduct = [
         image_inner,
         image_outer,
         type,
+        // ── Like tracking fields ──
+        likes: 0,
+        liked_by: [],
+        // ── Preserve original type so we can restore if likes drop back below threshold ──
+        original_type: type,
       });
 
       await product.save();
-      res
-        .status(201)
-        .json({
-          product_id: product._id,
-          message: "Product created successfully",
-        });
+      res.status(201).json({
+        product_id: product._id,
+        message: "Product created successfully",
+      });
     } catch (error) {
       res.status(500).json({ message: "Server error", error });
     }
@@ -81,7 +87,6 @@ const getProducts = async (req, res) => {
 
 const getTrendingProducts = async (req, res) => {
   try {
-    // ← change this line
     const products = await Product.find({
       user_id: req.query.user_id || req.user.userId,
       type: 1,
@@ -97,7 +102,6 @@ const getTrendingProducts = async (req, res) => {
 
 const getActivityFeed = async (req, res) => {
   try {
-    // ← change this line
     const products = await Product.find({
       user_id: req.query.user_id || req.user.userId,
       type: 2,
@@ -108,6 +112,80 @@ const getActivityFeed = async (req, res) => {
     res.json(products);
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ✅ NEW: Like / Unlike a product (resellers only)
+//
+// POST /api/products/:product_id/like
+//
+// Business rules:
+//   • A reseller can like any product once (toggle — second tap unlikes).
+//   • When a product's like count reaches TRENDING_LIKE_THRESHOLD (5) it is
+//     automatically promoted to type=1 (Trending), regardless of who owns it.
+//   • If likes later drop BELOW the threshold the product reverts to its
+//     original_type (the type set when it was created).
+//   • The existing manual type field and all existing routes are untouched.
+// ─────────────────────────────────────────────────────────────────────────────
+const likeProduct = async (req, res) => {
+  const { product_id } = req.params;
+  const userId = req.user.userId;
+
+  try {
+    const product = await Product.findById(product_id);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    // Initialise arrays defensively
+    if (!Array.isArray(product.liked_by)) product.liked_by = [];
+
+    const alreadyLiked = product.liked_by.some(
+      (id) => id.toString() === userId,
+    );
+
+    if (alreadyLiked) {
+      // ── Unlike ──
+      product.liked_by = product.liked_by.filter(
+        (id) => id.toString() !== userId,
+      );
+      product.likes = Math.max(0, (product.likes || 1) - 1);
+    } else {
+      // ── Like ──
+      product.liked_by.push(userId);
+      product.likes = (product.likes || 0) + 1;
+    }
+
+    // ── Auto-trending promotion / demotion ──
+    const previousType = product.type;
+
+    if (product.likes >= TRENDING_LIKE_THRESHOLD) {
+      // Promote to Trending
+      product.type = 1;
+    } else {
+      // Revert to what the store owner originally set
+      product.type = product.original_type || 2;
+    }
+
+    const becameTrending = previousType !== 1 && product.type === 1;
+    const lostTrending = previousType === 1 && product.type !== 1;
+
+    await product.save();
+
+    return res.json({
+      message: alreadyLiked ? "Product unliked" : "Product liked",
+      isLiked: !alreadyLiked,
+      likes: product.likes,
+      type: product.type,
+      ...(becameTrending && {
+        trending_notice: "This product has been promoted to Trending!",
+      }),
+      ...(lostTrending && {
+        trending_notice: "This product has been removed from Trending.",
+      }),
+    });
+  } catch (error) {
+    console.error("Like product error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
@@ -152,6 +230,12 @@ const updateProduct = [
           return res.status(404).json({ message: "Category not found" });
       }
 
+      // If the owner manually changes type, update original_type too so
+      // the auto-demotion logic reverts to the correct baseline.
+      if (updates.type !== undefined) {
+        updates.original_type = updates.type;
+      }
+
       Object.assign(product, updates, { updated_at: Date.now() });
       await product.save();
       res.json({ message: "Product updated successfully" });
@@ -181,6 +265,7 @@ module.exports = {
   getProducts,
   getTrendingProducts,
   getActivityFeed,
+  likeProduct, // ✅ NEW export
   updateProduct,
   deleteProduct,
 };
