@@ -14,9 +14,9 @@ const promotionLimits = {
 };
 
 const scanLimits = {
-  tier1: 20,
-  tier2: 50,
-  tier3: 100,
+  tier1: 1000,
+  tier2: 5000,
+  tier3: 10000,
 };
 const generateOrderId = async () => {
   const year = new Date().getFullYear();

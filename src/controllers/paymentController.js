@@ -8,25 +8,11 @@ const Subscription = require('../models/Subscription');
 const Notification = require('../models/Notification');
 const { sendMail } = require('../utils/mailer');
 
-// ── Tier config (matches PDF chart) ──────────────────────────────────────────
-const promotionLimits = {
-  tier1: 20,
-  tier2: 50,
-  tier3: 100,
-};
-
-const planDurations = {
-  tier1: 30,
-  tier2: 60,
-  tier3: 90,
-};
-
-// Amount in cents — matches frontend TIER_AMOUNTS
-const planAmounts = {
-  tier1: 2900,  // $29
-  tier2: 5900,  // $59
-  tier3: 9900,  // $99
-};
+// ── Tier config ───────────────────────────────────────────────────────────────
+const promotionLimits = { tier1: 20,   tier2: 50,   tier3: 100   };  
+const scanLimits      = { tier1: 1000, tier2: 5000, tier3: 10000 };  
+const planDurations   = { tier1: 30,   tier2: 60,   tier3: 90    };
+const planAmounts     = { tier1: 2900, tier2: 5900, tier3: 9900  };
 
 // ── Order ID generator ────────────────────────────────────────────────────────
 const generateOrderId = async () => {
@@ -91,20 +77,18 @@ const createPaymentIntent = async (req, res) => {
 };
 
 // ── POST /api/payments/confirm-verification ───────────────────────────────────
+// ── POST /api/payments/confirm-verification ───────────────────────────────────
 const confirmVerification = async (req, res) => {
   try {
     const { payment_intent_id, plan } = req.body;
     const userId = req.user.userId;
 
     if (!payment_intent_id) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'payment_intent_id is required' });
+      return res.status(400).json({ success: false, message: 'payment_intent_id is required' });
     }
 
     // Verify payment with Stripe
     const paymentIntent = await stripe.paymentIntents.retrieve(payment_intent_id);
-
     if (paymentIntent.status !== 'succeeded') {
       return res.status(400).json({
         success: false,
@@ -114,55 +98,83 @@ const confirmVerification = async (req, res) => {
 
     // Ensure this payment belongs to the requesting user
     if (paymentIntent.metadata?.user_id !== userId) {
-      return res
-        .status(403)
-        .json({ success: false, message: 'Payment does not belong to this user.' });
+      return res.status(403).json({ success: false, message: 'Payment does not belong to this user.' });
     }
 
     const user = await User.findById(userId);
-    if (!user)
-      return res.status(404).json({ success: false, message: 'User not found' });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     const activePlan = plan || paymentIntent.metadata?.plan || 'tier1';
-
-    // Validate plan
     if (!planDurations[activePlan]) {
       return res.status(400).json({ success: false, message: `Invalid plan: ${activePlan}` });
     }
 
-    const duration = planDurations[activePlan];
-    const totalPromotions = promotionLimits[activePlan];
+    const duration      = planDurations[activePlan];
+    const isReseller    = user.role === 2;
+    const scanLimit     = scanLimits[activePlan];      // ✅ for resellers
+    const promoLimit    = promotionLimits[activePlan]; // ✅ for store owners
 
-    // Create Subscription record
-    const order_id = await generateOrderId();
-    const subscription = new Subscription({
-      _id: uuidv4(),
-      order_id,
-      user_id: userId,
-      user_name: user.full_name,
-      type: user.role === 3 ? 'store_owner' : 'reseller',
-      plan: activePlan,
-      amount: paymentIntent.amount,
-      status: 'completed',
-      duration,
-      date: new Date(),
-      payment_method: {
-        card_number: '0000000000000000',   // placeholder — real card handled by Stripe
-        cardholder_name: paymentIntent.metadata?.name || user.full_name || 'Cardholder',
-        expiry_month: '01',
-        expiry_year: '9999',
-        cvc: '000',
-      },
-    });
-    await subscription.save();
+    const isUpgrade = !!user.subscription; // ✅ already has a subscription → upgrade
 
-    // Update user
-    user.verified = true;
-    user.subscription = subscription._id.toString();
+    if (isUpgrade) {
+      // ── UPGRADE: update existing subscription record ──────────────────────
+      await Subscription.findByIdAndUpdate(user.subscription, {
+        $set: {
+          plan:     activePlan,
+          amount:   paymentIntent.amount,
+          duration: duration,
+          status:   'completed',
+          date:     new Date(),
+          payment_method: {
+            card_number:      '0000000000000000',
+            cardholder_name:  paymentIntent.metadata?.name || user.full_name || 'Cardholder',
+            expiry_month:     '01',
+            expiry_year:      '9999',
+            cvc:              '000',
+          },
+        },
+      });
+    } else {
+      // ── NEW SUBSCRIPTION: create fresh record ─────────────────────────────
+      const order_id = await generateOrderId();
+      const subscription = new Subscription({
+        _id:       uuidv4(),
+        order_id,
+        user_id:   userId,
+        user_name: user.full_name,
+        type:      user.role === 3 ? 'store_owner' : 'reseller',
+        plan:      activePlan,
+        amount:    paymentIntent.amount,
+        status:    'completed',
+        duration,
+        date:      new Date(),
+        payment_method: {
+          card_number:      '0000000000000000',
+          cardholder_name:  paymentIntent.metadata?.name || user.full_name || 'Cardholder',
+          expiry_month:     '01',
+          expiry_year:      '9999',
+          cvc:              '000',
+        },
+      });
+      await subscription.save();
+      user.subscription = subscription._id.toString();
+    }
+
+    // ── Update user limits & expiry ───────────────────────────────────────────
+    user.verified              = true;
     user.subscription_end_time = moment().add(duration, 'days').toDate();
-    user.total_promotions = totalPromotions;
-    user.used_promotions = 0;
-    user.updated_at = Date.now();
+    user.updated_at            = Date.now();
+
+    if (isReseller) {
+      // ✅ Resellers use scan limits
+      user.total_scans  = scanLimit;
+      user.scans_used   = isUpgrade ? user.scans_used : []; // keep history on upgrade
+    } else {
+      // Store owners use promotion limits
+      user.total_promotions = promoLimit;
+      user.used_promotions  = 0;
+    }
+
     await user.save();
 
     // Mark store verified (store owners)
@@ -174,41 +186,44 @@ const confirmVerification = async (req, res) => {
       );
     }
 
-    // In-app notification
+    // ── Notification ──────────────────────────────────────────────────────────
+    const notifContent = isReseller
+      ? `You are now on the ${activePlan} plan. You can scan up to ${scanLimit.toLocaleString()} items. Subscription ends on ${moment(user.subscription_end_time).format('YYYY-MM-DD')}.`
+      : `You are now on the ${activePlan} plan. You can create up to ${promoLimit} promotions. Subscription ends on ${moment(user.subscription_end_time).format('YYYY-MM-DD')}.`;
+
     const notification = new Notification({
-      _id: uuidv4(),
+      _id:     uuidv4(),
       user_id: userId,
-      heading: 'Subscription Active! 🎉',
-      content: `You are now on the ${activePlan} plan. You can create up to ${totalPromotions} promotions. Subscription ends on ${moment(user.subscription_end_time).format('YYYY-MM-DD')}.`,
-      type: user.role === 3 ? 'store_owner' : 'reseller',
+      heading: isUpgrade ? `Plan Upgraded to ${activePlan} 🎉` : 'Subscription Active! 🎉',
+      content: notifContent,
+      type:    user.role === 3 ? 'store_owner' : 'reseller',
     });
     await notification.save();
 
-    // Email confirmation
+    // ── Email ─────────────────────────────────────────────────────────────────
     try {
       await sendMail(
         user.email,
-        '🎉 Your BinIQ Subscription is Active!',
-        `Hi ${user.full_name},\n\nYou are now subscribed to the ${activePlan} plan.\nYou can create up to ${totalPromotions} promotions.\nSubscription ends on: ${moment(user.subscription_end_time).format('YYYY-MM-DD')}.\n\nBest regards,\nThe BinIQ Team`
+        isUpgrade ? `🎉 Your BinIQ Plan Upgraded to ${activePlan}!` : '🎉 Your BinIQ Subscription is Active!',
+        `Hi ${user.full_name},\n\n${notifContent}\n\nBest regards,\nThe BinIQ Team`
       );
     } catch (mailError) {
       console.warn('Email send failed:', mailError.message);
     }
 
     return res.json({
-      success: true,
-      message: `Subscribed to ${activePlan} plan successfully`,
-      plan: activePlan,
-      total_promotions: totalPromotions,
+      success:               true,
+      message:               isUpgrade ? `Upgraded to ${activePlan} plan successfully` : `Subscribed to ${activePlan} plan successfully`,
+      plan:                  activePlan,
+      is_upgrade:            isUpgrade,
+      total_scans:           isReseller ? scanLimit    : undefined,
+      total_promotions:      isReseller ? undefined    : promoLimit,
       subscription_end_time: user.subscription_end_time,
     });
+
   } catch (error) {
     console.error('Confirm verification error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Verification failed',
-      error: error.message,
-    });
+    return res.status(500).json({ success: false, message: 'Verification failed', error: error.message });
   }
 };
 
