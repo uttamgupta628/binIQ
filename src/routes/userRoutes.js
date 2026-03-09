@@ -57,8 +57,8 @@ router.get("/user-count", authenticate, getUserCounts);
 router.patch("/admin-change-password", authenticate, ...adminchangePassword);
 router.post("/create-store-owner", authenticate, createStoreOwner);
 
-// admin 
-router.get("/all-scans", authenticate, getAllUsersScansAdmin);    
+// admin
+router.get("/all-scans", authenticate, getAllUsersScansAdmin);
 router.get("/:user_id/scans", authenticate, getUserScansAdmin);
 
 module.exports = router;
