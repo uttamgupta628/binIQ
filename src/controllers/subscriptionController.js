@@ -111,12 +111,12 @@ const updateSubscriptionTiers = [
               updated_at: Date.now(),
             },
           },
-          { upsert: true }
+          { upsert: true },
         );
       }
 
       const updatedPlans = await Plan.find().select(
-        "type tier amount duration"
+        "type tier amount duration",
       );
       const formattedPlans = {
         reseller: {},
@@ -157,7 +157,7 @@ const getAllSubscriptions = async (req, res) => {
     }
     if (user.role !== 1) {
       console.error(
-        `Non-admin user attempted access: ${user.email}, role: ${user.role}`
+        `Non-admin user attempted access: ${user.email}, role: ${user.role}`,
       );
       return res.status(403).json({
         success: false,
@@ -205,8 +205,8 @@ const getAllSubscriptions = async (req, res) => {
             userData.role === 2
               ? "reseller"
               : userData.role === 3
-              ? "store_owner"
-              : "unknown",
+                ? "store_owner"
+                : "unknown",
           store_name: userData.store_name || null,
           total_promotions: userData.total_promotions || 0,
           used_promotions: userData.used_promotions || 0,
@@ -316,7 +316,7 @@ const manageSubscriptionCounts = [
           user.role === 3 ? "promotion" : "scan"
         } limit has been updated to ${limit} based on your ${
           subscription.plan
-        } subscription.`
+        } subscription.`,
       );
 
       res.json({
@@ -416,7 +416,7 @@ const subscribe = [
         user_id: userId,
         heading: "Subscription Successful",
         content: `Subscribed to ${plan} plan successfully. Subscription ends on ${moment(
-          user.subscription_end_time
+          user.subscription_end_time,
         ).format("YYYY-MM-DD")}. Your ${
           user.role === 3 ? "promotion" : "scan"
         } limit is ${
@@ -429,12 +429,12 @@ const subscribe = [
         user.email,
         "Subscription Confirmation",
         `You have subscribed to the ${plan} plan. Your subscription ends on ${moment(
-          user.subscription_end_time
+          user.subscription_end_time,
         ).format("YYYY-MM-DD")}. Your ${
           user.role === 3 ? "promotion" : "scan"
         } limit is ${
           user.role === 3 ? user.total_promotions : user.total_scans
-        }.`
+        }.`,
       );
 
       res.json({
@@ -517,13 +517,69 @@ const cancelSubscription = async (req, res) => {
     await sendMail(
       user.email,
       "Subscription Cancelled",
-      "Your subscription has been cancelled. Your promotion/scan limit has been reset to 0."
+      "Your subscription has been cancelled. Your promotion/scan limit has been reset to 0.",
     );
 
     res.json({ message: "Subscription cancelled successfully" });
   } catch (error) {
     console.error("Cancel subscription error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+const verifyStoreOwnerSubscription = async (req, res) => {
+  try {
+    const { storeOwnerId } = req.params;
+
+    const storeOwner = await User.findById(storeOwnerId).select(
+      "role subscription subscription_end_time",
+    );
+
+    if (!storeOwner) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Store owner not found" });
+    }
+
+    if (storeOwner.role !== 3) {
+      return res.status(400).json({
+        success: false,
+        message: "User is not a store owner",
+        verified: false,
+      });
+    }
+
+    // No subscription linked at all
+    if (!storeOwner.subscription) {
+      return res.json({ success: true, verified: false });
+    }
+
+    const subscription = await Subscription.findById(
+      storeOwner.subscription,
+    ).select("status");
+
+    if (!subscription || subscription.status !== "completed") {
+      return res.json({ success: true, verified: false });
+    }
+
+    // Check expiry — subscription_end_time must still be in the future
+    const now = new Date();
+    const isExpired =
+      storeOwner.subscription_end_time &&
+      new Date(storeOwner.subscription_end_time) < now;
+
+    if (isExpired) {
+      return res.json({ success: true, verified: false });
+    }
+
+    return res.json({ success: true, verified: true });
+  } catch (error) {
+    console.error("Verify store owner subscription error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 
@@ -535,4 +591,5 @@ module.exports = {
   subscribe,
   getSubscriptions,
   cancelSubscription,
+  verifyStoreOwnerSubscription,
 };
