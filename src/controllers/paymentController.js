@@ -9,11 +9,22 @@ const Notification = require('../models/Notification');
 const { sendMail } = require('../utils/mailer');
 
 // ── Tier config ───────────────────────────────────────────────────────────────
-const promotionLimits = { tier1: 20,   tier2: 50,   tier3: 100   };  
-const scanLimits      = { tier1: 1000, tier2: 5000, tier3: 10000 };  
-const planDurations   = { tier1: 30,   tier2: 60,   tier3: 90    };
-const planAmounts     = { tier1: 2900, tier2: 5900, tier3: 9900  };
+const promotionLimits = { tier1: 20,   tier2: 50,   tier3: 100   };
+const scanLimits      = { tier1: 1000, tier2: 5000, tier3: 10000 };
 
+// ✅ Durations in days
+const planDurations = {
+  tier1: { monthly: 30,  yearly: 365 },
+  tier2: { monthly: 30,  yearly: 365 },
+  tier3: { monthly: 30,  yearly: 365 },
+};
+
+// ✅ Amounts in cents
+const planAmounts = {
+  tier1: { monthly: 2900,  yearly: 30000 },
+  tier2: { monthly: 5900,  yearly: 60000 },
+  tier3: { monthly: 9900,  yearly: 99900 },
+};
 // ── Order ID generator ────────────────────────────────────────────────────────
 const generateOrderId = async () => {
   const year = new Date().getFullYear();
@@ -36,51 +47,48 @@ const generateOrderId = async () => {
 const createPaymentIntent = async (req, res) => {
   try {
     const userId = req.user.userId;
-
     const user = await User.findById(userId);
-    if (!user)
-      return res.status(404).json({ success: false, message: 'User not found' });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    const { currency = 'usd', email, name, plan = 'tier1' } = req.body;
+    const { currency = 'usd', email, name, plan = 'tier1', billing_cycle = 'monthly' } = req.body;
 
-    // Use server-side amounts to prevent tampering
-    const amount = planAmounts[plan];
-    if (!amount) {
+    if (!planAmounts[plan]) {
       return res.status(400).json({ success: false, message: `Invalid plan: ${plan}` });
     }
+    if (!['monthly', 'yearly'].includes(billing_cycle)) {
+      return res.status(400).json({ success: false, message: `Invalid billing_cycle: ${billing_cycle}` });
+    }
+
+    const amount = planAmounts[plan][billing_cycle]; // ✅ correct amount
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency,
       receipt_email: email || user.email || undefined,
       metadata: {
-        user_id: userId,
+        user_id:       userId,
         plan,
-        name: name || user.full_name || '',
-        email: email || user.email || '',
+        billing_cycle, // ✅ store so confirmVerification can read it
+        name:          name || user.full_name || '',
+        email:         email || user.email || '',
       },
     });
 
     return res.json({
-      success: true,
-      clientSecret: paymentIntent.client_secret,
+      success:         true,
+      clientSecret:    paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
     });
   } catch (error) {
     console.error('Create payment intent error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Payment setup failed',
-      error: error.message,
-    });
+    return res.status(500).json({ success: false, message: 'Payment setup failed', error: error.message });
   }
 };
 
 // ── POST /api/payments/confirm-verification ───────────────────────────────────
-// ── POST /api/payments/confirm-verification ───────────────────────────────────
 const confirmVerification = async (req, res) => {
   try {
-    const { payment_intent_id, plan } = req.body;
+    const { payment_intent_id, plan, billing_cycle: reqBillingCycle } = req.body;
     const userId = req.user.userId;
 
     if (!payment_intent_id) {
@@ -96,7 +104,6 @@ const confirmVerification = async (req, res) => {
       });
     }
 
-    // Ensure this payment belongs to the requesting user
     if (paymentIntent.metadata?.user_id !== userId) {
       return res.status(403).json({ success: false, message: 'Payment does not belong to this user.' });
     }
@@ -104,80 +111,83 @@ const confirmVerification = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    const activePlan = plan || paymentIntent.metadata?.plan || 'tier1';
+    const activePlan    = plan || paymentIntent.metadata?.plan || 'tier1';
+    // ✅ Read billing_cycle from request body, fallback to Stripe metadata, then default monthly
+    const billing_cycle = reqBillingCycle || paymentIntent.metadata?.billing_cycle || 'monthly';
+
     if (!planDurations[activePlan]) {
       return res.status(400).json({ success: false, message: `Invalid plan: ${activePlan}` });
     }
+    if (!['monthly', 'yearly'].includes(billing_cycle)) {
+      return res.status(400).json({ success: false, message: `Invalid billing_cycle: ${billing_cycle}` });
+    }
 
-    const duration      = planDurations[activePlan];
-    const isReseller    = user.role === 2;
-    const scanLimit     = scanLimits[activePlan];      // ✅ for resellers
-    const promoLimit    = promotionLimits[activePlan]; // ✅ for store owners
-
-    const isUpgrade = !!user.subscription; // ✅ already has a subscription → upgrade
+    // ✅ Correct duration based on billing cycle (30 or 365 days)
+    const duration   = planDurations[activePlan][billing_cycle];
+    const isReseller = user.role === 2;
+    const scanLimit  = scanLimits[activePlan];
+    const promoLimit = promotionLimits[activePlan];
+    const isUpgrade  = !!user.subscription;
 
     if (isUpgrade) {
-      // ── UPGRADE: update existing subscription record ──────────────────────
       await Subscription.findByIdAndUpdate(user.subscription, {
         $set: {
-          plan:     activePlan,
-          amount:   paymentIntent.amount,
-          duration: duration,
-          status:   'completed',
-          date:     new Date(),
+          plan:          activePlan,
+          billing_cycle, // ✅ store billing cycle on subscription
+          amount:        paymentIntent.amount,
+          duration:      duration,
+          status:        'completed',
+          date:          new Date(),
           payment_method: {
-            card_number:      '0000000000000000',
-            cardholder_name:  paymentIntent.metadata?.name || user.full_name || 'Cardholder',
-            expiry_month:     '01',
-            expiry_year:      '9999',
-            cvc:              '000',
+            card_number:     '0000000000000000',
+            cardholder_name: paymentIntent.metadata?.name || user.full_name || 'Cardholder',
+            expiry_month:    '01',
+            expiry_year:     '9999',
+            cvc:             '000',
           },
         },
       });
     } else {
-      // ── NEW SUBSCRIPTION: create fresh record ─────────────────────────────
       const order_id = await generateOrderId();
       const subscription = new Subscription({
-        _id:       uuidv4(),
+        _id:           uuidv4(),
         order_id,
-        user_id:   userId,
-        user_name: user.full_name,
-        type:      user.role === 3 ? 'store_owner' : 'reseller',
-        plan:      activePlan,
-        amount:    paymentIntent.amount,
-        status:    'completed',
+        user_id:       userId,
+        user_name:     user.full_name,
+        type:          user.role === 3 ? 'store_owner' : 'reseller',
+        plan:          activePlan,
+        billing_cycle, // ✅ store billing cycle on new subscription
+        amount:        paymentIntent.amount,
+        status:        'completed',
         duration,
-        date:      new Date(),
+        date:          new Date(),
         payment_method: {
-          card_number:      '0000000000000000',
-          cardholder_name:  paymentIntent.metadata?.name || user.full_name || 'Cardholder',
-          expiry_month:     '01',
-          expiry_year:      '9999',
-          cvc:              '000',
+          card_number:     '0000000000000000',
+          cardholder_name: paymentIntent.metadata?.name || user.full_name || 'Cardholder',
+          expiry_month:    '01',
+          expiry_year:     '9999',
+          cvc:             '000',
         },
       });
       await subscription.save();
       user.subscription = subscription._id.toString();
     }
 
-    // ── Update user limits & expiry ───────────────────────────────────────────
+    // Update user
     user.verified              = true;
     user.subscription_end_time = moment().add(duration, 'days').toDate();
     user.updated_at            = Date.now();
 
     if (isReseller) {
-      // ✅ Resellers use scan limits
-      user.total_scans  = scanLimit;
-      user.scans_used   = isUpgrade ? user.scans_used : []; // keep history on upgrade
+      user.total_scans = scanLimit;
+      user.scans_used  = isUpgrade ? user.scans_used : [];
     } else {
-      // Store owners use promotion limits
       user.total_promotions = promoLimit;
       user.used_promotions  = 0;
     }
 
     await user.save();
 
-    // Mark store verified (store owners)
     if (user.role === 3) {
       await Store.findOneAndUpdate(
         { user_id: userId },
@@ -186,10 +196,11 @@ const confirmVerification = async (req, res) => {
       );
     }
 
-    // ── Notification ──────────────────────────────────────────────────────────
-    const notifContent = isReseller
-      ? `You are now on the ${activePlan} plan. You can scan up to ${scanLimit.toLocaleString()} items. Subscription ends on ${moment(user.subscription_end_time).format('YYYY-MM-DD')}.`
-      : `You are now on the ${activePlan} plan. You can create up to ${promoLimit} promotions. Subscription ends on ${moment(user.subscription_end_time).format('YYYY-MM-DD')}.`;
+    // ✅ Notification mentions billing cycle
+    const billingLabel  = billing_cycle === 'yearly' ? 'yearly' : 'monthly';
+    const notifContent  = isReseller
+      ? `You are now on the ${activePlan} (${billingLabel}) plan. You can scan up to ${scanLimit.toLocaleString()} items. Subscription ends on ${moment(user.subscription_end_time).format('YYYY-MM-DD')}.`
+      : `You are now on the ${activePlan} (${billingLabel}) plan. You can create up to ${promoLimit} promotions. Subscription ends on ${moment(user.subscription_end_time).format('YYYY-MM-DD')}.`;
 
     const notification = new Notification({
       _id:     uuidv4(),
@@ -200,7 +211,6 @@ const confirmVerification = async (req, res) => {
     });
     await notification.save();
 
-    // ── Email ─────────────────────────────────────────────────────────────────
     try {
       await sendMail(
         user.email,
@@ -213,11 +223,12 @@ const confirmVerification = async (req, res) => {
 
     return res.json({
       success:               true,
-      message:               isUpgrade ? `Upgraded to ${activePlan} plan successfully` : `Subscribed to ${activePlan} plan successfully`,
+      message:               isUpgrade ? `Upgraded to ${activePlan} (${billingLabel}) successfully` : `Subscribed to ${activePlan} (${billingLabel}) successfully`,
       plan:                  activePlan,
+      billing_cycle:         billing_cycle, // ✅ returned to frontend
       is_upgrade:            isUpgrade,
-      total_scans:           isReseller ? scanLimit    : undefined,
-      total_promotions:      isReseller ? undefined    : promoLimit,
+      total_scans:           isReseller ? scanLimit  : undefined,
+      total_promotions:      isReseller ? undefined  : promoLimit,
       subscription_end_time: user.subscription_end_time,
     });
 

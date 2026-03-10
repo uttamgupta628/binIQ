@@ -8,6 +8,7 @@ const subscriptionSchema = new mongoose.Schema({
   user_name: { type: String, required: true },
   type: { type: String, enum: ["reseller", "store_owner"], required: true },
   plan: { type: String, enum: ["tier1", "tier2", "tier3"], required: true },
+  billing_cycle: { type: String, enum: ["monthly", "yearly"], default: "monthly" },
   amount: { type: Number, required: true },
   status: {
     type: String,
@@ -15,7 +16,7 @@ const subscriptionSchema = new mongoose.Schema({
     required: true,
   },
   date: { type: Date, default: Date.now },
-  duration: { type: Number, required: true }, // Duration in days
+  duration: { type: Number, required: true },
   payment_method: {
     card_number: { type: String, required: true },
     cardholder_name: { type: String, required: true },
@@ -26,5 +27,4 @@ const subscriptionSchema = new mongoose.Schema({
 });
 
 subscriptionSchema.index({ order_id: 1 }, { unique: true });
-
 module.exports = mongoose.model("Subscription", subscriptionSchema);
