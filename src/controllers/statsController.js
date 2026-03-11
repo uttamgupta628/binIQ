@@ -319,7 +319,101 @@ const getQuickStats = async (req, res) => {
       .json({ success: false, message: "Server error", error: error.message });
   }
 };
+const getUserGrowthTrend = async (req, res) => {
+  try {
+    const admin = await User.findById(req.user.userId);
 
+    if (!admin || admin.role !== 1) {
+      return res.status(403).json({
+        success: false,
+        message: "Only admins can access analytics",
+      });
+    }
+
+    const sixMonthsAgo = moment().subtract(5, "months").startOf("month").toDate();
+
+    const growthData = await Subscription.aggregate([
+      {
+        $match: {
+          status: "completed",
+          date: { $gte: sixMonthsAgo },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            month: { $month: "$date" },
+            year: { $year: "$date" },
+            type: "$type",
+          },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const months = [];
+
+    for (let i = 5; i >= 0; i--) {
+      const date = moment().subtract(i, "months");
+
+      const month = date.month() + 1;
+      const year = date.year();
+
+      const storeOwners =
+        growthData.find(
+          (g) =>
+            g._id.month === month &&
+            g._id.year === year &&
+            g._id.type === "store_owner"
+        )?.count || 0;
+
+      const resellers =
+        growthData.find(
+          (g) =>
+            g._id.month === month &&
+            g._id.year === year &&
+            g._id.type === "reseller"
+        )?.count || 0;
+
+      months.push({
+        month: date.format("MMM"),
+        paidUsers: storeOwners + resellers,
+        storeOwners,
+        resellers,
+      });
+    }
+
+    const lastMonth = months[months.length - 1].paidUsers;
+    const previousMonth = months[months.length - 2].paidUsers;
+
+    let growthRate = 0;
+
+    if (previousMonth === 0 && lastMonth > 0) {
+      growthRate = 100;
+    } else if (previousMonth > 0) {
+      growthRate = ((lastMonth - previousMonth) / previousMonth) * 100;
+    }
+
+    growthRate = Number(growthRate.toFixed(2));
+
+    res.json({
+      success: true,
+      data: {
+        trend: months,
+        growthRate,
+      },
+    });
+
+  } catch (error) {
+    console.error("User growth trend error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
 module.exports = {
   getPaidUsers,
   getStoreOwners,
@@ -328,4 +422,5 @@ module.exports = {
   getRecentActivity,
   getRecentFeedbacks,
   getQuickStats,
+  getUserGrowthTrend,
 };
