@@ -1,4 +1,4 @@
-
+const Store = require('../models/Store');  
 const { v4: uuidv4 }         = require('uuid');
 const User                   = require('../models/User');
 const Subscription           = require('../models/Subscription');
@@ -111,8 +111,158 @@ const verifyStoreOwnerSubscription = async (req, res) => {
   }
 };
 
+// ── POST /api/subscriptions/admin-assign — admin assigns plan to user ─────────
+const adminAssignSubscription = async (req, res) => {
+  try {
+    const requester = await User.findById(req.user.userId);
+    if (!requester || requester.role !== 1) {
+      return res.status(403).json({ success: false, message: 'Only admins can assign subscriptions' });
+    }
+
+    const { userId, planType, durationDays } = req.body;
+
+    if (!userId || !planType || !durationDays) {
+      return res.status(400).json({ success: false, message: 'userId, planType and durationDays are required' });
+    }
+
+    const targetUser = await User.findById(userId);
+    if (!targetUser) return res.status(404).json({ success: false, message: 'User not found' });
+    if (targetUser.role === 1) return res.status(400).json({ success: false, message: 'Cannot assign subscription to admin' });
+
+    // ── Schema constraints ─────────────────────────────────────────────────
+    // type enum:  "reseller" | "store_owner"
+    // plan enum:  "tier1" | "tier2" | "tier3"
+    // store owners get tier1 at $1,997 price — plan field must still be tier1/2/3
+    // ──────────────────────────────────────────────────────────────────────
+
+    const VALID_PLANS = ['tier1', 'tier2', 'tier3', 'store_verification'];
+
+    if (!VALID_PLANS.includes(planType)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid planType. Valid values: ${VALID_PLANS.join(', ')}`,
+      });
+    }
+
+    // Role guard
+    if (targetUser.role === 3 && planType !== 'store_verification') {
+      return res.status(400).json({ success: false, message: 'Store owners must use store_verification plan' });
+    }
+    if (targetUser.role === 2 && planType === 'store_verification') {
+      return res.status(400).json({ success: false, message: 'Resellers must use tier1, tier2, or tier3' });
+    }
+
+    // ── Map planType to schema-valid values ────────────────────────────────
+    // type field:  "reseller" for role 2, "store_owner" for role 3
+    // plan field:  tier1/tier2/tier3 only (store_verification maps to tier1)
+    const schemaType = targetUser.role === 3 ? 'store_owner' : 'reseller';
+    const schemaPlan = planType === 'store_verification' ? 'tier1' : planType;
+
+    // ── Amounts ────────────────────────────────────────────────────────────
+    const AMOUNTS = {
+      store_verification: 199700,  // $1,997
+      tier1:               9900,   // $99
+      tier2:              19900,   // $199
+      tier3:              29900,   // $299
+    };
+    const LABELS = {
+      store_verification: 'Store Verification',
+      tier1: 'Tier 1',
+      tier2: 'Tier 2',
+      tier3: 'Tier 3',
+    };
+
+    const amount = AMOUNTS[planType];
+    const label  = LABELS[planType];
+
+    const now     = new Date();
+    const endTime = new Date(now);
+    endTime.setDate(endTime.getDate() + parseInt(durationDays));
+
+    // ── Create Subscription ────────────────────────────────────────────────
+    const subscription = new Subscription({
+      _id:           uuidv4(),
+      order_id:      `ADMIN-${uuidv4().slice(0, 8).toUpperCase()}`,
+      user_id:       targetUser._id,
+      user_name:     targetUser.full_name,           // ← required field
+      type:          schemaType,                     // ← "reseller" | "store_owner"
+      plan:          schemaPlan,                     // ← "tier1" | "tier2" | "tier3"
+      billing_cycle: parseInt(durationDays) <= 31 ? 'monthly' : 'yearly',
+      amount,
+      status:        'completed',
+      date:          now,
+      duration:      parseInt(durationDays),
+      payment_method: {
+        card_number:     'ADMIN-ASSIGNED',            // ← required, dummy value
+        cardholder_name: 'Admin Assigned',            // ← required
+        expiry_month:    '01',                        // ← required
+        expiry_year:     '9999',                      // ← required
+        cvc:             '000',                       // ← required
+      },
+    });
+
+    await subscription.save();
+
+    // ── Update User ────────────────────────────────────────────────────────
+    targetUser.subscription          = subscription._id;
+    targetUser.subscription_end_time = endTime;
+    targetUser.verified              = true;
+    targetUser.status                = 'approved';
+    targetUser.updated_at            = now;
+    await targetUser.save();
+
+    // ── Update Store if store owner ────────────────────────────────────────
+    if (targetUser.role === 3) {
+      await Store.findOneAndUpdate(
+        { user_id: targetUser._id },
+        { $set: { verified: true, updated_at: now } },
+      );
+    }
+
+    // ── Notify user ────────────────────────────────────────────────────────
+    const notification = new Notification({
+      _id:     uuidv4(),
+      user_id: targetUser._id,
+      heading: 'Subscription Activated',
+      content: `Your ${label} plan has been activated by admin. Valid until ${endTime.toDateString()}.`,
+      type:    targetUser.role === 3 ? 'store_owner' : 'reseller',
+    });
+    await notification.save();
+
+    try {
+      await sendMail(
+        targetUser.email,
+        'Subscription Activated — BinIQ',
+        `Hi ${targetUser.full_name},\n\nYour ${label} plan has been activated by admin.\nValid until: ${endTime.toDateString()}.\n\nBinIQ Team`,
+      );
+    } catch (mailErr) {
+      console.warn('Mail send failed (non-fatal):', mailErr.message);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `${label} plan assigned successfully`,
+      data: {
+        subscription_id:       subscription._id,
+        order_id:              subscription.order_id,
+        user_id:               targetUser._id,
+        user_name:             targetUser.full_name,
+        type:                  schemaType,
+        plan:                  schemaPlan,
+        amount,
+        subscription_end_time: endTime,
+        verified:              true,
+        status:                'approved',
+      },
+    });
+  } catch (error) {
+    console.error('Admin assign subscription error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};
 module.exports = {
   getSubscriptions,
   getAllSubscriptions,
   verifyStoreOwnerSubscription,
+  adminAssignSubscription,
 };
