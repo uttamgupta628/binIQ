@@ -526,6 +526,102 @@ const cancelSubscription = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+const getRevenueAnalytics = async (req, res) => {
+  try {
+    /*
+    ===============================
+    Revenue by Category (Plan Tier)
+    ===============================
+    */
+
+    const revenueByCategory = await Subscription.aggregate([
+      {
+        $match: { status: "completed" },
+      },
+      {
+        $group: {
+          _id: "$plan",
+          revenue: { $sum: "$amount" },
+          subscriptions: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          category: "$_id",
+          revenue: 1,
+          subscriptions: 1,
+        },
+      },
+      {
+        $sort: { category: 1 },
+      },
+    ]);
+
+    /*
+    ==========================
+    Monthly Revenue Growth
+    ==========================
+    */
+
+    const revenueGrowth = await Subscription.aggregate([
+      {
+        $match: { status: "completed" },
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$date" },
+            month: { $month: "$date" },
+          },
+          revenue: { $sum: "$amount" },
+          subscriptions: { $sum: 1 },
+        },
+      },
+      {
+        $sort: {
+          "_id.year": 1,
+          "_id.month": 1,
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          month: {
+            $concat: [
+              { $toString: "$_id.year" },
+              "-",
+              {
+                $cond: [
+                  { $lt: ["$_id.month", 10] },
+                  { $concat: ["0", { $toString: "$_id.month" }] },
+                  { $toString: "$_id.month" },
+                ],
+              },
+            ],
+          },
+          revenue: 1,
+          subscriptions: 1,
+        },
+      },
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        revenueByCategory,
+        revenueGrowth,
+      },
+    });
+  } catch (error) {
+    console.error("Revenue analytics error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
 
 module.exports = {
   getSubscriptionTiers,
@@ -535,4 +631,5 @@ module.exports = {
   subscribe,
   getSubscriptions,
   cancelSubscription,
+  getRevenueAnalytics,
 };

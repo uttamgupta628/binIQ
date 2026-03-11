@@ -1,55 +1,55 @@
-const mongoose = require("mongoose");
-const { v4: uuidv4 } = require("uuid");
+  const mongoose = require("mongoose");
+  const { v4: uuidv4 } = require("uuid");
 
-const userSchema = new mongoose.Schema({
-  _id: { type: String, default: uuidv4 },
-  full_name: { type: String, required: true },
-  store_name: { type: String, default: null },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  role: { type: Number, enum: [1, 2, 3], required: true }, // 1: Admin, 2: Reseller, 3: Store Owner
-  dob: { type: Date, default: null },
-  gender: {
+  const userSchema = new mongoose.Schema({
+    _id: { type: String, default: uuidv4 },
+    full_name: { type: String, required: true },
+    store_name: { type: String, default: null },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    role: { type: Number, enum: [1, 2, 3], required: true }, // 1: Admin, 2: Reseller, 3: Store Owner
+    dob: { type: Date, default: null },
+    gender: {
+      type: String,
+      enum: ["male", "female", "other", null],
+      default: null,
+    },
+    phone_number: { type: String, default: null },
+    address: { type: String, default: null },
+    card_information: {
+      card_number: { type: String, default: null },
+      cardholder_name: { type: String, default: null },
+      expiry_month: { type: String, default: null },
+      expiry_year: { type: String, default: null },
+      cvc: { type: String, default: null },
+    },
+    expertise_level: {
+      type: String,
+      enum: ["beginner", "intermediate", "expert", null],
+      default: null,
+    },
+    profile_image: { type: String, default: null },
+    subscription: {
+      type: String,
+      ref: "Subscription",
+      default: null,
+    },
+    
+    resetPasswordToken: { type: String, default: null },
+    resetPasswordExpires: { type: Date, default: null },
+    subscription_end_time: { type: Date, default: null },
+    total_promotions: { type: Number, default: 0 }, // Total promotions allowed
+    used_promotions: { type: Number, default: 0 }, // Promotions used
+    promotions: [{ type: String, ref: "Promotion", default: [] }], // Reference to Promotion IDs
+    status: {
     type: String,
-    enum: ["male", "female", "other", null],
-    default: null,
+    enum: ["pending", "approved", "rejected"],
+    default: "pending",
   },
-  phone_number: { type: String, default: null },
-  address: { type: String, default: null },
-  card_information: {
-    card_number: { type: String, default: null },
-    cardholder_name: { type: String, default: null },
-    expiry_month: { type: String, default: null },
-    expiry_year: { type: String, default: null },
-    cvc: { type: String, default: null },
-  },
-  expertise_level: {
-    type: String,
-    enum: ["beginner", "intermediate", "expert", null],
-    default: null,
-  },
-  profile_image: { type: String, default: null },
-  subscription: {
-    type: String,
-    ref: "Subscription",
-    default: null,
-  },
-  
-  resetPasswordToken: { type: String, default: null },
-  resetPasswordExpires: { type: Date, default: null },
-  subscription_end_time: { type: Date, default: null },
-  total_promotions: { type: Number, default: 0 }, // Total promotions allowed
-  used_promotions: { type: Number, default: 0 }, // Promotions used
-  promotions: [{ type: String, ref: "Promotion", default: [] }], // Reference to Promotion IDs
-  status: {
-  type: String,
-  enum: ["pending", "approved", "rejected"],
-  default: "pending",
-},
-  total_scans: { type: Number, default: 0 },
-  scans_used: [{ type: String, default: [] }],
-  created_at: { type: Date, default: Date.now },
-  updated_at: { type: Date, default: Date.now },
-});
+    total_scans: { type: Number, default: 0 },
+    scans_used: [{ type: String, default: [] }],
+    created_at: { type: Date, default: Date.now },
+    updated_at: { type: Date, default: Date.now },
+  });
 
-module.exports = mongoose.model("User", userSchema);
+  module.exports = mongoose.model("User", userSchema);

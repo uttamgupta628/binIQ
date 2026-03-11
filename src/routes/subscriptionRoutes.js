@@ -7,6 +7,7 @@ const {
   updateSubscriptionTiers,
   getAllSubscriptions,
   manageSubscriptionCounts,
+  getRevenueAnalytics,
 } = require("../controllers/subscriptionController");
 const { authenticate } = require("../utils/auth");
 
@@ -19,5 +20,5 @@ router.put("/manage-counts", authenticate, ...manageSubscriptionCounts);
 router.post("/subscribe", authenticate, ...subscribe);
 router.get("/", authenticate, getSubscriptions);
 router.post("/cancel", authenticate, cancelSubscription);
-
+router.get("/revenue-analytics", authenticate, getRevenueAnalytics);
 module.exports = router;

@@ -414,6 +414,48 @@ const getUserGrowthTrend = async (req, res) => {
     });
   }
 };
+const getConversionStats = async (req, res) => {
+  try {
+    const admin = await User.findById(req.user.userId);
+
+    if (!admin || admin.role !== 1) {
+      return res.status(403).json({
+        success: false,
+        message: "Only admins can access analytics",
+      });
+    }
+
+    // Total users (excluding admins)
+    const totalUsers = await User.countDocuments({
+      role: { $in: [2, 3] },
+    });
+
+    // Users who purchased subscription
+    const paidUsers = await Subscription.countDocuments({
+      status: "completed",
+    });
+
+    const conversionRate =
+      totalUsers === 0 ? 0 : ((paidUsers / totalUsers) * 100).toFixed(2);
+
+    res.json({
+      success: true,
+      data: {
+        totalUsers,
+        paidUsers,
+        conversionRate: Number(conversionRate),
+      },
+    });
+  } catch (error) {
+    console.error("Conversion stats error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
 module.exports = {
   getPaidUsers,
   getStoreOwners,
@@ -423,4 +465,5 @@ module.exports = {
   getRecentFeedbacks,
   getQuickStats,
   getUserGrowthTrend,
+  getConversionStats,
 };

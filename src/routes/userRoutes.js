@@ -21,6 +21,9 @@ const {
   getUserMetrics,
   adminchangePassword,
   createStoreOwner,
+  getFeedbackRatingTrends,
+  getUserAnalytics,
+  getUserAddressesAndStatus,
 } = require("../controllers/userController");
 const { authenticate } = require("../utils/auth");
 const {
@@ -47,6 +50,7 @@ router.post("/change-password", authenticate, ...changePassword);
 router.delete("/delete-account", authenticate, ...deleteAccount);
 router.post("/feedback", authenticate, ...submitFeedback);
 router.get("/feedback", authenticate, getFeedback);
+router.get("/feedback/trends", authenticate, getFeedbackRatingTrends);
 router.post("/feedback/reply", authenticate, ...replyFeedback);
 router.post("/approve-store-owner", authenticate, ...approveStoreOwner);
 router.post("/reject-store-owner", authenticate, ...rejectStoreOwner);
@@ -56,6 +60,8 @@ router.delete("/scans/:scan_id", authenticate, deleteScan);
 router.get("/user-count", authenticate, getUserCounts);
 router.patch("/admin-change-password", authenticate, ...adminchangePassword);
 router.post("/create-store-owner", authenticate, createStoreOwner);
+router.get("/user-analytics", authenticate, getUserAnalytics);
+router.get("/locationDetails", authenticate, getUserAddressesAndStatus);
 
 // admin 
 router.get("/all-scans", authenticate, getAllUsersScansAdmin);    
