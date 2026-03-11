@@ -7,6 +7,7 @@ const {
   getRecentActivity,
   getRecentFeedbacks,
   getQuickStats,
+  getUserGrowthTrend,
 } = require("../controllers/statsController");
 const { authenticate } = require("../utils/auth");
 
@@ -19,5 +20,6 @@ router.get("/revenue", authenticate, getRevenue);
 router.get("/recent-activity", authenticate, getRecentActivity);
 router.get("/recent-feedbacks", authenticate, getRecentFeedbacks);
 router.get("/quick-stats", authenticate, getQuickStats);
+router.get("/user-growth-trend", authenticate, getUserGrowthTrend)
 
 module.exports = router;

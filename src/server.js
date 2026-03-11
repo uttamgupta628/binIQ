@@ -14,6 +14,7 @@ const faqRoutes = require("./routes/faqRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const statsRoutes = require("./routes/statsRoutes");
 const paymentRoutes = require("./routes/Paymentroutes");
+const exportRoutes = require("./routes/exportRoutes");
 
 // Load environment variables
 dotenv.config();
@@ -48,6 +49,8 @@ app.use("/api/faqs", faqRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/stats", statsRoutes);
+app.use("/api/export", exportRoutes);
+
 
 // Global Error-Handling Middleware
 app.use((err, req, res, next) => {
