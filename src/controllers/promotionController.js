@@ -153,6 +153,11 @@ const getPromotions = async (req, res) => {
       .populate("category_id", "category_name")
       .sort({ start_date: -1 });
 
+    // ✅ ADD THIS TEMPORARILY
+    console.log("PROMOTIONS FROM DB:", JSON.stringify(
+      promotions.map(p => ({ id: p._id, title: p.title, banner_image: p.banner_image }))
+    ));
+
     res.json({ success: true, data: promotions });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });

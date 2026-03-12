@@ -16,6 +16,7 @@ const userSchema = new mongoose.Schema({
   },
   phone_number: { type: String, default: null },
   address: { type: String, default: null },
+  verified: { type: Boolean, default: false },
   card_information: {
     card_number: { type: String, default: null },
     cardholder_name: { type: String, default: null },

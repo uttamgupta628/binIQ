@@ -14,6 +14,7 @@ const promotionSchema = new mongoose.Schema({
   status: { type: String, enum: ["Active", "Inactive"], required: true },
   start_date: { type: Date, required: true },
   end_date: { type: Date, required: true },
+  banner_image: { type: String, default: null }, 
   visibility: { type: String, enum: ["On", "Off"], required: true },
   updated_at: { type: Date, default: Date.now },
 });

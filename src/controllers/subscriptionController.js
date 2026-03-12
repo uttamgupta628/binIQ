@@ -160,10 +160,10 @@ const adminAssignSubscription = async (req, res) => {
 
     // ── Amounts ────────────────────────────────────────────────────────────
     const AMOUNTS = {
-      store_verification: 199700,  // $1,997
-      tier1:               9900,   // $99
-      tier2:              19900,   // $199
-      tier3:              29900,   // $299
+      store_verification: 1997,  // $1,997
+      tier1:               29,   // $99
+      tier2:              59,   // $199
+      tier3:              99,   // $299
     };
     const LABELS = {
       store_verification: 'Store Verification',
