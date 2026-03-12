@@ -14,6 +14,8 @@ const {
   getFavoriteStores,
   getFavoriteStoresByUserId,
   getNearbyStores,
+  checkInStore,
+  getCheckedInStores,
 } = require("../controllers/storeController");
 const { authenticate } = require("../utils/auth");
 
@@ -30,5 +32,7 @@ router.post("/favorite", authenticate, favoriteStore);
 router.get("/favorites", authenticate, getFavoriteStores);
 router.get("/favorites/:user_id", authenticate, getFavoriteStoresByUserId);
 router.get("/nearby", authenticate, getNearbyStores);
+router.post("/checkin", authenticate, checkInStore); // toggle check-in
+router.get("/checkins", authenticate, getCheckedInStores); // get all checked-in stores
 
 module.exports = router;

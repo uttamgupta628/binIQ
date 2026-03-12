@@ -63,8 +63,8 @@ router.post("/create-store-owner", authenticate, createStoreOwner);
 router.get("/user-analytics", authenticate, getUserAnalytics);
 router.get("/locationDetails", authenticate, getUserAddressesAndStatus);
 
-// admin 
-router.get("/all-scans", authenticate, getAllUsersScansAdmin);    
+// admin
+router.get("/all-scans", authenticate, getAllUsersScansAdmin);
 router.get("/:user_id/scans", authenticate, getUserScansAdmin);
 
 module.exports = router;

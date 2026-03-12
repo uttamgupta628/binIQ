@@ -21,21 +21,16 @@ dotenv.config();
 
 const app = express();
 
-app.use("/api/payments", paymentRoutes);
-// Middleware
+// ── Middleware ───────────────────────────────────────────────────
 app.use(cors());
+
+// ⚠️ Webhook raw body MUST be before express.json()
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+
+// JSON body parser for all other routes
 app.use(express.json());
 
-// Connect to MongoDB
-mongoose
-  .connect(process.env.MONGODB_URI, {})
-  .then(() => {
-    console.log("MongoDB connected successfully");
-    initializePlans();
-  })
-  .catch((err) => console.error("MongoDB connection error:", err.message));
-
-// Routes
+// ── Routes ───────────────────────────────────────────────────────
 app.get("/", (req, res) => {
   res.status(200).send("Welcome to the server");
 });
@@ -50,9 +45,9 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/export", exportRoutes);
+app.use("/api/payments", paymentRoutes);  // ✅ AFTER express.json()
 
-
-// Global Error-Handling Middleware
+// ── Global Error Handler ─────────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error("Error:", {
     message: err.message,
@@ -67,6 +62,15 @@ app.use((err, req, res, next) => {
   });
 });
 
+// ── Database ─────────────────────────────────────────────────────
+mongoose
+  .connect(process.env.MONGODB_URI, {})
+  .then(() => {
+    console.log("MongoDB connected successfully");
+    initializePlans();
+  })
+  .catch((err) => console.error("MongoDB connection error:", err.message));
+
 const initializePlans = async () => {
   try {
     const defaultPlans = [
@@ -77,7 +81,6 @@ const initializePlans = async () => {
       { type: "store_owner", tier: "tier2", amount: 20, duration: 90 },
       { type: "store_owner", tier: "tier3", amount: 30, duration: 180 },
     ];
-
     for (const plan of defaultPlans) {
       const exists = await Plan.findOne({ type: plan.type, tier: plan.tier });
       if (!exists) {
@@ -90,6 +93,6 @@ const initializePlans = async () => {
   }
 };
 
-// Start server
-const PORT = process.env.PORT || 5000;
+// ── Start Server ─────────────────────────────────────────────────
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
