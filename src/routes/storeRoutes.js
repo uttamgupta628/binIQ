@@ -14,6 +14,7 @@ const {
   getFavoriteStores,
   getFavoriteStoresByUserId,
   getNearbyStores,
+  getTopStores,
 } = require("../controllers/storeController");
 const { authenticate } = require("../utils/auth");
 
@@ -30,5 +31,7 @@ router.post("/favorite", authenticate, favoriteStore);
 router.get("/favorites", authenticate, getFavoriteStores);
 router.get("/favorites/:user_id", authenticate, getFavoriteStoresByUserId);
 router.get("/nearby", authenticate, getNearbyStores);
+router.get("/topPerformers", authenticate, getTopStores);
+
 
 module.exports = router;

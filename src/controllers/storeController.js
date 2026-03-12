@@ -523,6 +523,48 @@ const getNearbyStores = [
     }
   },
 ];
+const getTopStores = async (req, res) => {
+  try {
+    const stores = await Store.aggregate([
+      {
+        $addFields: {
+          popularity_score: { $add: ["$views_count", "$followers"] },
+        },
+      },
+      {
+        $sort: { popularity_score: -1 },
+      },
+      {
+        $limit: 5,
+      },
+      {
+        $project: {
+          store_name: 1,
+          address: 1,
+          city: 1,
+          views_count: 1,
+          followers: 1,
+          popularity_score: 1,
+          store_image: 1,
+          ratings: 1,
+        },
+      },
+    ]);
+
+    res.json({
+      success: true,
+      count: stores.length,
+      data: stores,
+    });
+  } catch (error) {
+    console.error("Get top stores error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
 
 module.exports = {
   createStore,
@@ -538,4 +580,5 @@ module.exports = {
   getFavoriteStores,
   getFavoriteStoresByUserId,
   getNearbyStores,
+  getTopStores,
 };

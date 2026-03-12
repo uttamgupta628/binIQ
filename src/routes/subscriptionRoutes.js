@@ -8,6 +8,7 @@ const {
   getAllSubscriptions,
   manageSubscriptionCounts,
   getRevenueAnalytics,
+  deleteSubscription,
 } = require("../controllers/subscriptionController");
 const { authenticate } = require("../utils/auth");
 
@@ -21,4 +22,5 @@ router.post("/subscribe", authenticate, ...subscribe);
 router.get("/", authenticate, getSubscriptions);
 router.post("/cancel", authenticate, cancelSubscription);
 router.get("/revenue-analytics", authenticate, getRevenueAnalytics);
+router.delete("/:subscription_id", authenticate, deleteSubscription);
 module.exports = router;
