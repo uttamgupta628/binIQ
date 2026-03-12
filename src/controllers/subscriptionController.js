@@ -260,9 +260,167 @@ const adminAssignSubscription = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
+const getRevenueAnalytics = async (req, res) => {
+  try {
+    /*
+    ===============================
+    Revenue by Category (Plan Tier)
+    ===============================
+    */
+
+    const revenueByCategory = await Subscription.aggregate([
+      {
+        $match: { status: "completed" },
+      },
+      {
+        $group: {
+          _id: "$plan",
+          revenue: { $sum: "$amount" },
+          subscriptions: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          category: "$_id",
+          revenue: 1,
+          subscriptions: 1,
+        },
+      },
+      {
+        $sort: { category: 1 },
+      },
+    ]);
+
+    /*
+    ==========================
+    Monthly Revenue Growth
+    ==========================
+    */
+
+    const revenueGrowth = await Subscription.aggregate([
+      {
+        $match: { status: "completed" },
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$date" },
+            month: { $month: "$date" },
+          },
+          revenue: { $sum: "$amount" },
+          subscriptions: { $sum: 1 },
+        },
+      },
+      {
+        $sort: {
+          "_id.year": 1,
+          "_id.month": 1,
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          month: {
+            $concat: [
+              { $toString: "$_id.year" },
+              "-",
+              {
+                $cond: [
+                  { $lt: ["$_id.month", 10] },
+                  { $concat: ["0", { $toString: "$_id.month" }] },
+                  { $toString: "$_id.month" },
+                ],
+              },
+            ],
+          },
+          revenue: 1,
+          subscriptions: 1,
+        },
+      },
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        revenueByCategory,
+        revenueGrowth,
+      },
+    });
+  } catch (error) {
+    console.error("Revenue analytics error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+const deleteSubscription = async (req, res) => {
+  try {
+    const { user_id } = req.params;
+
+    const admin = await User.findById(req.user.userId);
+
+    if (!admin || admin.role !== 1) {
+      return res.status(403).json({
+        success: false,
+        message: "Only admins can delete subscriptions",
+      });
+    }
+
+    const user = await User.findById(user_id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (!user.subscription) {
+      return res.status(400).json({
+        success: false,
+        message: "User does not have an active subscription",
+      });
+    }
+
+    // Delete subscription document
+    await Subscription.findByIdAndDelete(user.subscription);
+
+    // Reset user subscription fields
+    user.subscription = null;
+    user.subscription_end_time = null;
+    user.total_promotions = 0;
+    user.used_promotions = 0;
+    user.total_scans = 0;
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Subscription deleted successfully",
+      data: {
+        user_id: user._id,
+      },
+    });
+  } catch (error) {
+    console.error("Delete subscription error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getSubscriptions,
-  getAllSubscriptions,
+  cancelSubscription,
+  getRevenueAnalytics,
+    deleteSubscription,
+    getAllSubscriptions,
   verifyStoreOwnerSubscription,
   adminAssignSubscription,
 };
