@@ -50,15 +50,14 @@ const createPaymentIntent = async (req, res) => {
       email,
       name,
       plan          = 'tier1',
-      billing_cycle = 'yearly',
+      billing_cycle = 'monthly',
       type,
     } = req.body;
 
-    // ── Fixed $1,997/year for ALL roles (reseller + store owner) ──
-    const isVerificationPayment = type === 'store_verification' || user.role === 2 || user.role === 3;
+    // ── Store verification payment (role 3 / explicit type only) ──
+    const isVerificationPayment = type === 'store_verification' || user.role === 3;
 
     if (isVerificationPayment) {
-      // Already verified and not expired — skip charge
       if (user.verified && user.subscription_end_time) {
         const expiry = new Date(user.subscription_end_time);
         if (expiry > new Date()) {
@@ -66,7 +65,7 @@ const createPaymentIntent = async (req, res) => {
         }
       }
 
-      const amount = 199700; // $1,997 fixed
+      const amount = 199700; // $1,997 fixed for store owners
 
       const paymentIntent = await stripe.paymentIntents.create({
         amount,
@@ -89,7 +88,7 @@ const createPaymentIntent = async (req, res) => {
       });
     }
 
-    // ── Fallback: old reseller subscription (kept for backward compat) ──
+    // ── Reseller tier subscription (role 2) ──
     if (!planAmounts[plan]) {
       return res.status(400).json({ success: false, message: `Invalid plan: ${plan}` });
     }
@@ -98,6 +97,9 @@ const createPaymentIntent = async (req, res) => {
     }
 
     const amount = planAmounts[plan][billing_cycle];
+
+    console.log(`Creating PaymentIntent — user: ${userId} | plan: ${plan} | billing: ${billing_cycle} | amount: ${amount}`);
+
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency,

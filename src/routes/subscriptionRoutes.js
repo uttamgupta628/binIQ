@@ -11,13 +11,13 @@ const {
 } = require("../controllers/subscriptionController");
 const { authenticate } = require("../utils/auth");
 
-router.get("/tiers", authenticate, getSubscriptionTiers);
-router.put("/tiers", authenticate, ...updateSubscriptionTiers);
+// router.get("/tiers", authenticate, getSubscriptionTiers);
+// router.put("/tiers", authenticate, ...updateSubscriptionTiers);
 router.get("/all", authenticate, getAllSubscriptions);
-router.put("/manage-counts", authenticate, ...manageSubscriptionCounts);
-router.post("/subscribe", authenticate, ...subscribe);
+// router.put("/manage-counts", authenticate, ...manageSubscriptionCounts);
+// router.post("/subscribe", authenticate, ...subscribe);
 router.get("/", authenticate, getSubscriptions);
-router.post("/cancel", authenticate, cancelSubscription);
+// router.post("/cancel", authenticate, cancelSubscription);
 router.get("/revenue-analytics", authenticate, getRevenueAnalytics);
 router.delete("/:subscription_id", authenticate, deleteSubscription);
 router.get("/verify/:storeOwnerId", authenticate, verifyStoreOwnerSubscription);
