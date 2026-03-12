@@ -14,6 +14,24 @@ const productSchema = new mongoose.Schema({
   offer_price: { type: Number },
   image_inner: { type: String }, // S3 URL
   image_outer: { type: String }, // S3 URL
+  likes: {
+    type: Number,
+    default: 0,
+  },
+
+  liked_by: {
+    // Array of user IDs (strings) who have liked this product
+    type: [String],
+    default: [],
+  },
+
+  original_type: {
+    // Stores the type the store owner originally set (1 or 2).
+    // Used to revert the product back when likes drop below the threshold.
+    type: Number,
+    enum: [1, 2],
+    default: 2,
+  },
   type: { type: Number, enum: [1, 2], required: true }, // 1 = Trending, 2 = Activity Feed
   updated_at: { type: Date, default: Date.now },
 });
