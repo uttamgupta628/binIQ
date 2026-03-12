@@ -46,7 +46,9 @@ const createPromotion = [
       // ── Fetch user (no populate needed — we check verified + status) ──
       const user = await User.findById(userId);
       if (!user) {
-        return res.status(404).json({ success: false, message: "User not found" });
+        return res
+          .status(404)
+          .json({ success: false, message: "User not found" });
       }
 
       // ── Allow role 2 (Reseller) AND role 3 (Store Owner) ──────────────
@@ -58,14 +60,13 @@ const createPromotion = [
       }
 
       // ── Must be verified + approved ────────────────────────────────────
-      const isVerified =
-        user.verified === true ||
-        user.status   === "approved";
+      const isVerified = user.verified === true || user.status === "approved";
 
       if (!isVerified) {
         return res.status(403).json({
           success: false,
-          message: "Your account is not verified. Please complete the Get Verified payment first.",
+          message:
+            "Your account is not verified. Please complete the Get Verified payment first.",
         });
       }
 
@@ -77,7 +78,8 @@ const createPromotion = [
       if (!hasActiveSubscription) {
         return res.status(403).json({
           success: false,
-          message: "Your verification has expired. Please renew to create promotions.",
+          message:
+            "Your verification has expired. Please renew to create promotions.",
         });
       }
 
@@ -92,13 +94,17 @@ const createPromotion = [
       // ── Validate category ──────────────────────────────────────────────
       const category = await ProductCategory.findById(category_id);
       if (!category) {
-        return res.status(404).json({ success: false, message: "Category not found" });
+        return res
+          .status(404)
+          .json({ success: false, message: "Category not found" });
       }
 
       // ── Duplicate UPC check ────────────────────────────────────────────
       const existingPromotion = await Promotion.findOne({ upc_id });
       if (existingPromotion) {
-        return res.status(400).json({ success: false, message: "UPC ID already exists" });
+        return res
+          .status(400)
+          .json({ success: false, message: "UPC ID already exists" });
       }
 
       // ── Create promotion ───────────────────────────────────────────────
@@ -111,8 +117,8 @@ const createPromotion = [
         tags,
         price,
         status,
-        start_date:  new Date(start_date),
-        end_date:    new Date(end_date),
+        start_date: new Date(start_date),
+        end_date: new Date(end_date),
         visibility,
         banner_image: banner_image || null,
       });
@@ -125,17 +131,16 @@ const createPromotion = [
       await user.save();
 
       return res.status(201).json({
-        success:      true,
+        success: true,
         promotion_id: promotion._id,
-        message:      "Promotion created successfully",
+        message: "Promotion created successfully",
       });
-
     } catch (error) {
       console.error("Create promotion error:", error.message);
       return res.status(500).json({
         success: false,
         message: "Server error",
-        error:   error.message,
+        error: error.message,
       });
     }
   },
@@ -146,7 +151,7 @@ const getPromotions = async (req, res) => {
 
   try {
     const query = { user_id: req.query.user_id || req.user.userId };
-    if (status)     query.status     = status;
+    if (status) query.status = status;
     if (visibility) query.visibility = visibility;
 
     const promotions = await Promotion.find(query)
@@ -160,20 +165,43 @@ const getPromotions = async (req, res) => {
 
     res.json({ success: true, data: promotions });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Server error", error: error.message });
+    res
+      .status(500)
+      .json({ success: false, message: "Server error", error: error.message });
   }
 };
 
 const updatePromotion = [
-  check("category_id").optional().notEmpty().withMessage("Category ID cannot be empty"),
+  check("category_id")
+    .optional()
+    .notEmpty()
+    .withMessage("Category ID cannot be empty"),
   check("title").optional().notEmpty().withMessage("Title cannot be empty"),
-  check("description").optional().notEmpty().withMessage("Description cannot be empty"),
+  check("description")
+    .optional()
+    .notEmpty()
+    .withMessage("Description cannot be empty"),
   check("upc_id").optional().notEmpty().withMessage("UPC ID cannot be empty"),
-  check("price").optional().isFloat({ min: 0 }).withMessage("Price must be a positive number"),
-  check("status").optional().isIn(["Active", "Inactive"]).withMessage("Status must be Active or Inactive"),
-  check("visibility").optional().isIn(["On", "Off"]).withMessage("Visibility must be On or Off"),
-  check("start_date").optional().isISO8601().withMessage("Valid start date is required"),
-  check("end_date").optional().isISO8601().withMessage("Valid end date is required"),
+  check("price")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Price must be a positive number"),
+  check("status")
+    .optional()
+    .isIn(["Active", "Inactive"])
+    .withMessage("Status must be Active or Inactive"),
+  check("visibility")
+    .optional()
+    .isIn(["On", "Off"])
+    .withMessage("Visibility must be On or Off"),
+  check("start_date")
+    .optional()
+    .isISO8601()
+    .withMessage("Valid start date is required"),
+  check("end_date")
+    .optional()
+    .isISO8601()
+    .withMessage("Valid end date is required"),
 
   async (req, res) => {
     const errors = validationResult(req);
@@ -182,19 +210,26 @@ const updatePromotion = [
     }
 
     const { promotion_id } = req.params;
-    const updates          = req.body;
-    const userId           = req.user.userId;
+    const updates = req.body;
+    const userId = req.user.userId;
 
     try {
-      const promotion = await Promotion.findOne({ _id: promotion_id, user_id: userId });
+      const promotion = await Promotion.findOne({
+        _id: promotion_id,
+        user_id: userId,
+      });
       if (!promotion) {
-        return res.status(404).json({ success: false, message: "Promotion not found" });
+        return res
+          .status(404)
+          .json({ success: false, message: "Promotion not found" });
       }
 
       if (updates.category_id) {
         const category = await ProductCategory.findById(updates.category_id);
         if (!category) {
-          return res.status(404).json({ success: false, message: "Category not found" });
+          return res
+            .status(404)
+            .json({ success: false, message: "Category not found" });
         }
       }
 
@@ -204,7 +239,9 @@ const updatePromotion = [
           _id: { $ne: promotion_id },
         });
         if (existingPromotion) {
-          return res.status(400).json({ success: false, message: "UPC ID already exists" });
+          return res
+            .status(400)
+            .json({ success: false, message: "UPC ID already exists" });
         }
       }
 
@@ -214,19 +251,28 @@ const updatePromotion = [
       res.json({ success: true, message: "Promotion updated successfully" });
     } catch (error) {
       console.error("Update promotion error:", error.message);
-      res.status(500).json({ success: false, message: "Server error", error: error.message });
+      res.status(500).json({
+        success: false,
+        message: "Server error",
+        error: error.message,
+      });
     }
   },
 ];
 
 const deletePromotion = async (req, res) => {
   const { promotion_id } = req.params;
-  const userId           = req.user.userId;
+  const userId = req.user.userId;
 
   try {
-    const promotion = await Promotion.findOne({ _id: promotion_id, user_id: userId });
+    const promotion = await Promotion.findOne({
+      _id: promotion_id,
+      user_id: userId,
+    });
     if (!promotion) {
-      return res.status(404).json({ success: false, message: "Promotion not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Promotion not found" });
     }
 
     await Promotion.deleteOne({ _id: promotion_id });
@@ -234,14 +280,18 @@ const deletePromotion = async (req, res) => {
     const user = await User.findById(userId);
     if (user && user.used_promotions > 0) {
       user.used_promotions -= 1;
-      user.promotions = user.promotions.filter(id => id.toString() !== promotion_id);
+      user.promotions = user.promotions.filter(
+        (id) => id.toString() !== promotion_id,
+      );
       await user.save();
     }
 
     res.json({ success: true, message: "Promotion deleted successfully" });
   } catch (error) {
     console.error("Delete promotion error:", error.message);
-    res.status(500).json({ success: false, message: "Server error", error: error.message });
+    res
+      .status(500)
+      .json({ success: false, message: "Server error", error: error.message });
   }
 };
 

@@ -53,8 +53,54 @@ const exportExcel = async (res, data, filename = "export") => {
     res.status(500).json({ success: false, message: "Excel export failed" });
   }
 };
+const exportMultiSheetExcel = async (res, sheets, filename = "export") => {
+  try {
+    const workbook = new ExcelJS.Workbook();
+
+    sheets.forEach((sheet) => {
+      const worksheet = workbook.addWorksheet(sheet.name);
+
+      if (!sheet.data || sheet.data.length === 0) {
+        worksheet.addRow(["No Data"]);
+        return;
+      }
+
+      const columns = Object.keys(sheet.data[0]).map((key) => ({
+        header: key,
+        key,
+      }));
+
+      worksheet.columns = columns;
+
+      sheet.data.forEach((row) => {
+        worksheet.addRow(row);
+      });
+    });
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=${filename}.xlsx`
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("Multi sheet export error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Excel export failed",
+    });
+  }
+};
+
 
 module.exports = {
   exportCSV,
   exportExcel,
+  exportMultiSheetExcel,
 };
