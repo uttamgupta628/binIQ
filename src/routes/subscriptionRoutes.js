@@ -6,7 +6,8 @@ const {
   getAllSubscriptions,
   manageSubscriptionCounts,
   getRevenueAnalytics,
-   verifyStoreOwnerSubscription,
+    deleteSubscription,
+     verifyStoreOwnerSubscription,
   adminAssignSubscription
 } = require("../controllers/subscriptionController");
 const { authenticate } = require("../utils/auth");
@@ -21,5 +22,7 @@ router.post("/subscribe", authenticate, ...subscribe);
 router.get("/", authenticate, getSubscriptions);
 router.post("/cancel", authenticate, cancelSubscription);
 router.get("/revenue-analytics", authenticate, getRevenueAnalytics);
+router.delete("/:subscription_id", authenticate, deleteSubscription);
 router.get('/verify/:storeOwnerId', authenticate, verifyStoreOwnerSubscription);
 router.post('/admin-assign', authenticate, adminAssignSubscription);
+module.exports = router;

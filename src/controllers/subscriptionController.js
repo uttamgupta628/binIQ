@@ -356,12 +356,71 @@ const getRevenueAnalytics = async (req, res) => {
     });
   }
 };
+const deleteSubscription = async (req, res) => {
+  try {
+    const { user_id } = req.params;
+
+    const admin = await User.findById(req.user.userId);
+
+    if (!admin || admin.role !== 1) {
+      return res.status(403).json({
+        success: false,
+        message: "Only admins can delete subscriptions",
+      });
+    }
+
+    const user = await User.findById(user_id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (!user.subscription) {
+      return res.status(400).json({
+        success: false,
+        message: "User does not have an active subscription",
+      });
+    }
+
+    // Delete subscription document
+    await Subscription.findByIdAndDelete(user.subscription);
+
+    // Reset user subscription fields
+    user.subscription = null;
+    user.subscription_end_time = null;
+    user.total_promotions = 0;
+    user.used_promotions = 0;
+    user.total_scans = 0;
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Subscription deleted successfully",
+      data: {
+        user_id: user._id,
+      },
+    });
+  } catch (error) {
+    console.error("Delete subscription error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getSubscriptions,
   cancelSubscription,
   getRevenueAnalytics,
-   getAllSubscriptions,
+    deleteSubscription,
+    getAllSubscriptions,
   verifyStoreOwnerSubscription,
   adminAssignSubscription,
- 
 };
