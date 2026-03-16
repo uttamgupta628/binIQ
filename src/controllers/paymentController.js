@@ -18,9 +18,9 @@ const planDurations = {
 };
 
 const planAmounts = {
-  tier1: { monthly: 2900,  yearly: 30000  },
-  tier2: { monthly: 5900,  yearly: 60000  },
-  tier3: { monthly: 9900,  yearly: 99900  },
+  tier1: { monthly: 29,  yearly: 300  },
+  tier2: { monthly: 59,  yearly: 600  },
+  tier3: { monthly: 99,  yearly: 999  },
 };
 
 // ── Order ID generator ────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ const createPaymentIntent = async (req, res) => {
         }
       }
 
-      const amount = 199700; // $1,997 fixed for store owners
+      const amount = 1997; // $1,997 fixed for store owners
 
       const paymentIntent = await stripe.paymentIntents.create({
         amount,
