@@ -36,23 +36,15 @@ const getAllSubscriptions = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
     if (!user)
-      return res
-        .status(404)
-        .json({ success: false, message: "Requester not found" });
-    if (user.role !== 1) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Only admins can access this endpoint",
-        });
-    }
+      return res.status(404).json({ success: false, message: "Requester not found" });
+    if (user.role !== 1)
+      return res.status(403).json({ success: false, message: "Only admins can access this endpoint" });
 
     const subscriptions = await Subscription.find({ status: "completed" })
       .populate({
         path: "user_id",
         select:
-          "full_name email role store_name total_promotions used_promotions total_scans verified status",
+          "full_name email role store_name total_promotions used_promotions total_scans scans_used verified status",
       })
       .select("-payment_method.card_number -payment_method.cvc")
       .lean();
@@ -63,6 +55,8 @@ const getAllSubscriptions = async (req, res) => {
 
     const formatted = subscriptions.map((sub) => {
       const u = sub.user_id || {};
+      // ✅ Always show real scan count from array length
+      const realScanCount = Array.isArray(u.scans_used) ? u.scans_used.length : (u.total_scans || 0);
       return {
         subscription_id: sub._id,
         order_id: sub.order_id,
@@ -70,18 +64,13 @@ const getAllSubscriptions = async (req, res) => {
           user_id: u._id,
           full_name: u.full_name,
           email: u.email,
-          role:
-            u.role === 2
-              ? "reseller"
-              : u.role === 3
-                ? "store_owner"
-                : "unknown",
+          role: u.role === 2 ? "reseller" : u.role === 3 ? "store_owner" : "unknown",
           store_name: u.store_name || null,
           verified: u.verified || false,
           status: u.status || "pending",
           total_promotions: u.total_promotions || 0,
           used_promotions: u.used_promotions || 0,
-          total_scans: u.total_scans || 0,
+          total_scans: realScanCount,  // ✅ real count not stale field
         },
         type: sub.type,
         plan: sub.plan,
@@ -101,9 +90,7 @@ const getAllSubscriptions = async (req, res) => {
     res.json({ success: true, data: formatted });
   } catch (error) {
     console.error("Get all subscriptions error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: error.message });
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
 
@@ -116,11 +103,8 @@ const verifyStoreOwnerSubscription = async (req, res) => {
     );
 
     if (!user)
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+      return res.status(404).json({ success: false, message: "User not found" });
 
-    // ── Verified if: verified flag true + status approved + not expired ──
     const now = new Date();
     const notExpired =
       user.subscription_end_time && new Date(user.subscription_end_time) > now;
@@ -130,9 +114,7 @@ const verifyStoreOwnerSubscription = async (req, res) => {
     return res.json({ success: true, verified: !!isVerified });
   } catch (error) {
     console.error("Verify subscription error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: error.message });
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
 
@@ -140,84 +122,37 @@ const verifyStoreOwnerSubscription = async (req, res) => {
 const adminAssignSubscription = async (req, res) => {
   try {
     const requester = await User.findById(req.user.userId);
-    if (!requester || requester.role !== 1) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Only admins can assign subscriptions",
-        });
-    }
+    if (!requester || requester.role !== 1)
+      return res.status(403).json({ success: false, message: "Only admins can assign subscriptions" });
 
     const { userId, planType, durationDays } = req.body;
 
-    if (!userId || !planType || !durationDays) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "userId, planType and durationDays are required",
-        });
-    }
+    if (!userId || !planType || !durationDays)
+      return res.status(400).json({ success: false, message: "userId, planType and durationDays are required" });
 
     const targetUser = await User.findById(userId);
     if (!targetUser)
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+      return res.status(404).json({ success: false, message: "User not found" });
     if (targetUser.role === 1)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Cannot assign subscription to admin",
-        });
-
-    // ── Schema constraints ─────────────────────────────────────────────────
-    // type enum:  "reseller" | "store_owner"
-    // plan enum:  "tier1" | "tier2" | "tier3"
-    // store owners get tier1 at $1,997 price — plan field must still be tier1/2/3
-    // ──────────────────────────────────────────────────────────────────────
+      return res.status(400).json({ success: false, message: "Cannot assign subscription to admin" });
 
     const VALID_PLANS = ["tier1", "tier2", "tier3", "store_verification"];
+    if (!VALID_PLANS.includes(planType))
+      return res.status(400).json({ success: false, message: `Invalid planType. Valid values: ${VALID_PLANS.join(", ")}` });
 
-    if (!VALID_PLANS.includes(planType)) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid planType. Valid values: ${VALID_PLANS.join(", ")}`,
-      });
-    }
+    if (targetUser.role === 3 && planType !== "store_verification")
+      return res.status(400).json({ success: false, message: "Store owners must use store_verification plan" });
+    if (targetUser.role === 2 && planType === "store_verification")
+      return res.status(400).json({ success: false, message: "Resellers must use tier1, tier2, or tier3" });
 
-    // Role guard
-    if (targetUser.role === 3 && planType !== "store_verification") {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Store owners must use store_verification plan",
-        });
-    }
-    if (targetUser.role === 2 && planType === "store_verification") {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Resellers must use tier1, tier2, or tier3",
-        });
-    }
-
-    // ── Map planType to schema-valid values ────────────────────────────────
-    // type field:  "reseller" for role 2, "store_owner" for role 3
-    // plan field:  tier1/tier2/tier3 only (store_verification maps to tier1)
     const schemaType = targetUser.role === 3 ? "store_owner" : "reseller";
     const schemaPlan = planType === "store_verification" ? "tier1" : planType;
 
-    // ── Amounts ────────────────────────────────────────────────────────────
     const AMOUNTS = {
-      store_verification: 1997, // $1,997
-      tier1: 29, // $99
-      tier2: 59, // $199
-      tier3: 99, // $299
+      store_verification: 1997,
+      tier1: 29,
+      tier2: 59,
+      tier3: 99,
     };
     const LABELS = {
       store_verification: "Store Verification",
@@ -227,45 +162,46 @@ const adminAssignSubscription = async (req, res) => {
     };
 
     const amount = AMOUNTS[planType];
-    const label = LABELS[planType];
+    const label  = LABELS[planType];
 
-    const now = new Date();
+    const now     = new Date();
     const endTime = new Date(now);
     endTime.setDate(endTime.getDate() + parseInt(durationDays));
 
-    // ── Create Subscription ────────────────────────────────────────────────
     const subscription = new Subscription({
-      _id: uuidv4(),
-      order_id: `ADMIN-${uuidv4().slice(0, 8).toUpperCase()}`,
-      user_id: targetUser._id,
-      user_name: targetUser.full_name, // ← required field
-      type: schemaType, // ← "reseller" | "store_owner"
-      plan: schemaPlan, // ← "tier1" | "tier2" | "tier3"
+      _id:           uuidv4(),
+      order_id:      `ADMIN-${uuidv4().slice(0, 8).toUpperCase()}`,
+      user_id:       targetUser._id,
+      user_name:     targetUser.full_name,
+      type:          schemaType,
+      plan:          schemaPlan,
       billing_cycle: parseInt(durationDays) <= 31 ? "monthly" : "yearly",
       amount,
-      status: "completed",
-      date: now,
-      duration: parseInt(durationDays),
+      status:        "completed",
+      date:          now,
+      duration:      parseInt(durationDays),
       payment_method: {
-        card_number: "ADMIN-ASSIGNED", // ← required, dummy value
-        cardholder_name: "Admin Assigned", // ← required
-        expiry_month: "01", // ← required
-        expiry_year: "9999", // ← required
-        cvc: "000", // ← required
+        card_number:     "ADMIN-ASSIGNED",
+        cardholder_name: "Admin Assigned",
+        expiry_month:    "01",
+        expiry_year:     "9999",
+        cvc:             "000",
       },
     });
 
     await subscription.save();
 
-    // ── Update User ────────────────────────────────────────────────────────
-    targetUser.subscription = subscription._id;
+    // ✅ FIX: Do NOT touch total_scans or scans_used here.
+    // total_scans is derived from scans_used.length in scanController.
+    // Setting it to anything here would corrupt the count.
+    targetUser.subscription          = subscription._id;
     targetUser.subscription_end_time = endTime;
-    targetUser.verified = true;
-    targetUser.status = "approved";
-    targetUser.updated_at = now;
+    targetUser.verified              = true;
+    targetUser.status                = "approved";
+    targetUser.updated_at            = now;
+    // ✅ Explicitly do NOT set: targetUser.total_scans = anything
     await targetUser.save();
 
-    // ── Update Store if store owner ────────────────────────────────────────
     if (targetUser.role === 3) {
       await Store.findOneAndUpdate(
         { user_id: targetUser._id },
@@ -273,13 +209,12 @@ const adminAssignSubscription = async (req, res) => {
       );
     }
 
-    // ── Notify user ────────────────────────────────────────────────────────
     const notification = new Notification({
-      _id: uuidv4(),
+      _id:     uuidv4(),
       user_id: targetUser._id,
       heading: "Subscription Activated",
       content: `Your ${label} plan has been activated by admin. Valid until ${endTime.toDateString()}.`,
-      type: targetUser.role === 3 ? "store_owner" : "reseller",
+      type:    targetUser.role === 3 ? "store_owner" : "reseller",
     });
     await notification.save();
 
@@ -293,87 +228,68 @@ const adminAssignSubscription = async (req, res) => {
       console.warn("Mail send failed (non-fatal):", mailErr.message);
     }
 
+    // ✅ Real scan count from array, not a stale field
+    const realScanCount = targetUser.scans_used?.length ?? 0;
+
     res.status(201).json({
       success: true,
       message: `${label} plan assigned successfully`,
       data: {
-        subscription_id: subscription._id,
-        order_id: subscription.order_id,
-        user_id: targetUser._id,
-        user_name: targetUser.full_name,
-        type: schemaType,
-        plan: schemaPlan,
+        subscription_id:       subscription._id,
+        order_id:              subscription.order_id,
+        user_id:               targetUser._id,
+        user_name:             targetUser.full_name,
+        type:                  schemaType,
+        plan:                  schemaPlan,
         amount,
         subscription_end_time: endTime,
-        verified: true,
-        status: "approved",
+        verified:              true,
+        status:                "approved",
+        total_scans:           realScanCount,   // ✅ real count
       },
     });
   } catch (error) {
     console.error("Admin assign subscription error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: error.message });
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
+
+// ── Revenue analytics ─────────────────────────────────────────────────────────
 const getRevenueAnalytics = async (req, res) => {
   try {
-    /*
-    ===============================
-    Revenue by Category (Plan Tier)
-    ===============================
-    */
-
     const revenueByCategory = await Subscription.aggregate([
-      {
-        $match: { status: "completed" },
-      },
+      { $match: { status: "completed" } },
       {
         $group: {
-          _id: "$plan",
-          revenue: { $sum: "$amount" },
+          _id:           "$plan",
+          revenue:       { $sum: "$amount" },
           subscriptions: { $sum: 1 },
         },
       },
       {
         $project: {
-          _id: 0,
-          category: "$_id",
-          revenue: 1,
+          _id:           0,
+          category:      "$_id",
+          revenue:       1,
           subscriptions: 1,
         },
       },
-      {
-        $sort: { category: 1 },
-      },
+      { $sort: { category: 1 } },
     ]);
 
-    /*
-    ==========================
-    Monthly Revenue Growth
-    ==========================
-    */
-
     const revenueGrowth = await Subscription.aggregate([
-      {
-        $match: { status: "completed" },
-      },
+      { $match: { status: "completed" } },
       {
         $group: {
           _id: {
-            year: { $year: "$date" },
+            year:  { $year:  "$date" },
             month: { $month: "$date" },
           },
-          revenue: { $sum: "$amount" },
+          revenue:       { $sum: "$amount" },
           subscriptions: { $sum: 1 },
         },
       },
-      {
-        $sort: {
-          "_id.year": 1,
-          "_id.month": 1,
-        },
-      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
       {
         $project: {
           _id: 0,
@@ -390,84 +306,56 @@ const getRevenueAnalytics = async (req, res) => {
               },
             ],
           },
-          revenue: 1,
+          revenue:       1,
           subscriptions: 1,
         },
       },
     ]);
 
-    res.json({
-      success: true,
-      data: {
-        revenueByCategory,
-        revenueGrowth,
-      },
-    });
+    res.json({ success: true, data: { revenueByCategory, revenueGrowth } });
   } catch (error) {
     console.error("Revenue analytics error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message,
-    });
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
+
+// ── DELETE /api/subscriptions/:user_id — admin deletes a user's subscription ──
 const deleteSubscription = async (req, res) => {
   try {
     const { user_id } = req.params;
 
     const admin = await User.findById(req.user.userId);
-
-    if (!admin || admin.role !== 1) {
-      return res.status(403).json({
-        success: false,
-        message: "Only admins can delete subscriptions",
-      });
-    }
+    if (!admin || admin.role !== 1)
+      return res.status(403).json({ success: false, message: "Only admins can delete subscriptions" });
 
     const user = await User.findById(user_id);
+    if (!user)
+      return res.status(404).json({ success: false, message: "User not found" });
+    if (!user.subscription)
+      return res.status(400).json({ success: false, message: "User does not have an active subscription" });
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    if (!user.subscription) {
-      return res.status(400).json({
-        success: false,
-        message: "User does not have an active subscription",
-      });
-    }
-
-    // Delete subscription document
     await Subscription.findByIdAndDelete(user.subscription);
 
-    // Reset user subscription fields
-    user.subscription = null;
+    // ✅ FIX: Clear BOTH total_scans AND scans_used array on subscription delete.
+    // Previously only total_scans was reset but scans_used kept all the data,
+    // so on next login the old scans would re-populate the count.
+    user.subscription          = null;
     user.subscription_end_time = null;
-    user.total_promotions = 0;
-    user.used_promotions = 0;
-    user.total_scans = 0;
-
+    user.total_promotions      = 0;
+    user.used_promotions       = 0;
+    user.total_scans           = 0;
+    user.scans_used            = [];   // ✅ clear scan history too
+    user.updated_at            = new Date();
     await user.save();
 
     res.json({
       success: true,
       message: "Subscription deleted successfully",
-      data: {
-        user_id: user._id,
-      },
+      data: { user_id: user._id },
     });
   } catch (error) {
     console.error("Delete subscription error:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message,
-    });
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
 

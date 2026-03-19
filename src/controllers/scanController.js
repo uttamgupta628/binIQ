@@ -17,7 +17,7 @@ const getUserScanLimit = (user) => {
   return SCAN_LIMITS[plan] || SCAN_LIMITS.free;
 };
 
-// POST /api/users/scan
+// ─── POST /api/users/scan ─────────────────────────────────────────────────────
 const recordScan = [
   check("qr_data").notEmpty().withMessage("QR data is required"),
   async (req, res) => {
@@ -29,16 +29,27 @@ const recordScan = [
     const userId = req.user.userId;
 
     try {
-      // Populate subscription so we can read the plan
       const user = await User.findById(userId).populate("subscription");
       if (!user) return res.status(404).json({ message: "User not found" });
 
       const scanLimit = getUserScanLimit(user);
 
-      if (user.total_scans >= scanLimit) {
+      // ✅ KEY FIX: ALWAYS use scans_used.length as the real count.
+      // The subscription renewal sets total_scans = plan limit (e.g. 10000)
+      // which is WRONG — that field should track scans USED, not the plan ceiling.
+      // Using array length bypasses this bug entirely.
+      const realScanCount = user.scans_used.length;
+
+      if (realScanCount !== user.total_scans) {
+        console.log(
+          `[scanController] Healing total_scans: stored=${user.total_scans} → actual=${realScanCount} (limit=${scanLimit})`
+        );
+      }
+
+      if (realScanCount >= scanLimit) {
         return res.status(403).json({
           success: false,
-          message: `Scan limit reached (${user.total_scans}/${scanLimit}). Upgrade your plan to scan more.`,
+          message: `Scan limit reached (${realScanCount}/${scanLimit}). Upgrade your plan to scan more.`,
         });
       }
 
@@ -47,14 +58,18 @@ const recordScan = [
         qr_data,
         product_name: product_name || "Unknown Product",
         category:     category     || "Uncategorized",
-        image:        image        || null,   // Cloudinary URL saved here
+        image:        image        || null,
         scanned_at:   new Date().toISOString(),
       };
 
       user.scans_used.push(JSON.stringify(scanRecord));
-      user.total_scans  = user.scans_used.length;
-      user.updated_at   = Date.now();
+      user.total_scans = user.scans_used.length; // always derive, never increment
+      user.updated_at  = Date.now();
       await user.save();
+
+      console.log(
+        `[scanController] ✅ Scan saved: user=${userId} total=${user.total_scans}/${scanLimit} product="${scanRecord.product_name}"`
+      );
 
       return res.status(201).json({
         success:         true,
@@ -70,7 +85,7 @@ const recordScan = [
   },
 ];
 
-// GET /api/users/scans
+// ─── GET /api/users/scans ─────────────────────────────────────────────────────
 const getScans = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId)
@@ -79,6 +94,12 @@ const getScans = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const scanLimit = getUserScanLimit(user);
+    const realCount = user.scans_used.length;
+
+    if (user.total_scans !== realCount) {
+      user.total_scans = realCount;
+      await user.save();
+    }
 
     const parsedScans = user.scans_used.map((s) => {
       try { return JSON.parse(s); }
@@ -87,8 +108,8 @@ const getScans = async (req, res) => {
 
     return res.json({
       success:         true,
-      total_scans:     user.total_scans,
-      scans_remaining: scanLimit - user.total_scans,
+      total_scans:     realCount,
+      scans_remaining: scanLimit - realCount,
       scans:           parsedScans,
     });
   } catch (error) {
@@ -97,7 +118,7 @@ const getScans = async (req, res) => {
   }
 };
 
-// DELETE /api/users/scans/:scan_id
+// ─── DELETE /api/users/scans/:scan_id ────────────────────────────────────────
 const deleteScan = async (req, res) => {
   const { scan_id } = req.params;
   const userId = req.user.userId;
@@ -126,7 +147,7 @@ const deleteScan = async (req, res) => {
   }
 };
 
-// GET /api/users/:user_id/scans  (admin)
+// ─── GET /api/users/:user_id/scans  (admin) ──────────────────────────────────
 const getUserScansAdmin = async (req, res) => {
   try {
     const requester = await User.findById(req.user.userId);
@@ -140,6 +161,7 @@ const getUserScansAdmin = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const scanLimit   = getUserScanLimit(user);
+    const realCount   = user.scans_used.length;
     const parsedScans = user.scans_used.map((s) => {
       try { return JSON.parse(s); }
       catch { return { qr_data: s, scanned_at: null }; }
@@ -152,8 +174,8 @@ const getUserScansAdmin = async (req, res) => {
         full_name:       user.full_name,
         email:           user.email,
         role:            user.role === 2 ? "reseller" : "store_owner",
-        total_scans:     user.total_scans,
-        scans_remaining: scanLimit - user.total_scans,
+        total_scans:     realCount,
+        scans_remaining: scanLimit - realCount,
       },
       scans: parsedScans,
     });
@@ -163,7 +185,7 @@ const getUserScansAdmin = async (req, res) => {
   }
 };
 
-// GET /api/users/all-scans  (admin)
+// ─── GET /api/users/all-scans  (admin) ───────────────────────────────────────
 const getAllUsersScansAdmin = async (req, res) => {
   try {
     const requester = await User.findById(req.user.userId);
@@ -176,7 +198,8 @@ const getAllUsersScansAdmin = async (req, res) => {
       .populate("subscription");
 
     const allUsersScans = users.map((user) => {
-      const scanLimit   = getUserScanLimit(user);
+      const scanLimit = getUserScanLimit(user);
+      const realCount = user.scans_used.length;
       const parsedScans = user.scans_used.map((s) => {
         try { return JSON.parse(s); }
         catch { return { qr_data: s, scanned_at: null }; }
@@ -187,22 +210,40 @@ const getAllUsersScansAdmin = async (req, res) => {
           full_name:       user.full_name,
           email:           user.email,
           role:            user.role === 2 ? "reseller" : "store_owner",
-          total_scans:     user.total_scans,
-          scans_remaining: scanLimit - user.total_scans,
+          total_scans:     realCount,
+          scans_remaining: scanLimit - realCount,
         },
         scans: parsedScans,
       };
     });
 
     return res.json({
-      success:                       true,
-      total_users:                   users.length,
-      total_scans_across_all_users:  users.reduce((sum, u) => sum + u.total_scans, 0),
-      data:                          allUsersScans,
+      success:                      true,
+      total_users:                  users.length,
+      total_scans_across_all_users: users.reduce((sum, u) => sum + u.scans_used.length, 0),
+      data:                         allUsersScans,
     });
   } catch (error) {
     console.error("Get all users scans admin error:", error);
     return res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// ─── resetScanCountOnUpgrade ──────────────────────────────────────────────────
+// Call this from your subscription/payment controller after upgrade succeeds.
+// Resets total_scans to match actual array length (NOT the plan ceiling).
+const resetScanCountOnUpgrade = async (userId) => {
+  try {
+    const user = await User.findById(userId).populate("subscription");
+    if (!user) return;
+    const realCount = user.scans_used.length;
+    const old       = user.total_scans;
+    user.total_scans = realCount;
+    user.updated_at  = Date.now();
+    await user.save();
+    console.log(`[resetScanCount] user=${userId} plan=${user.subscription?.plan} ${old} → ${realCount}`);
+  } catch (err) {
+    console.error("[resetScanCount] error:", err.message);
   }
 };
 
@@ -212,4 +253,5 @@ module.exports = {
   deleteScan,
   getUserScansAdmin,
   getAllUsersScansAdmin,
+  resetScanCountOnUpgrade,
 };
