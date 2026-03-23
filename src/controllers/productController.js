@@ -9,7 +9,7 @@ const createProduct = [
   check("category_id").notEmpty().withMessage("Category ID is required"),
   check("title").notEmpty().withMessage("Title is required"),
   check("description").notEmpty().withMessage("Description is required"),
-  check("upc_id").notEmpty().withMessage("UPC ID is required"),
+  check("upc_id").optional().notEmpty().withMessage("UPC ID cannot be empty"),
   check("price")
     .isFloat({ min: 0 })
     .withMessage("Price must be a positive number"),

@@ -7,7 +7,7 @@ const productSchema = new mongoose.Schema({
   category_id: { type: String, ref: "ProductCategory", required: true },
   title: { type: String, required: true },
   description: { type: String, required: true },
-  upc_id: { type: String, required: true, unique: true },
+  upc_id: { type: String, sparse: true, default: null },
   tags: [{ type: String }],
   created_at: { type: Date, default: Date.now },
   price: { type: Number, required: true },

@@ -8,7 +8,6 @@ const createPromotion = [
   check("category_id").notEmpty().withMessage("Category ID is required"),
   check("title").notEmpty().withMessage("Title is required"),
   check("description").notEmpty().withMessage("Description is required"),
-  check("upc_id").notEmpty().withMessage("UPC ID is required"),
   check("price")
     .isFloat({ min: 0 })
     .withMessage("Price must be a positive number"),
@@ -91,10 +90,12 @@ const createPromotion = [
       }
 
       // ── Duplicate UPC check ────────────────────────────────────────────
-      const existingPromotion = await Promotion.findOne({ upc_id });
-      if (existingPromotion) {
-        return res.status(400).json({ success: false, message: "UPC ID already exists" });
-      }
+      if (upc_id) {
+  const existingPromotion = await Promotion.findOne({ upc_id });
+  if (existingPromotion) {
+    return res.status(400).json({ success: false, message: "UPC ID already exists" });
+  }
+}
 
       // ── Create promotion ───────────────────────────────────────────────
       const promotion = new Promotion({
