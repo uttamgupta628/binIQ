@@ -7,7 +7,7 @@ const promotionSchema = new mongoose.Schema({
   category_id: { type: String, ref: "ProductCategory", required: true },
   title: { type: String, required: true },
   description: { type: String, required: true },
-  upc_id: { type: String, unique: true, sparse: true, default: null },
+  upc_id: { type: String, default: null },
   tags: [{ type: String }],
   created_at: { type: Date, default: Date.now },
   price: { type: Number, required: true },

@@ -242,52 +242,74 @@ const register = [
 
 // module.exports = { register };
 const login = [
+  // ✅ Validation
   check("email").isEmail().withMessage("Valid email is required"),
   check("password").notEmpty().withMessage("Password is required"),
-  // ✅ check as string OR number
   check("role")
     .notEmpty().withMessage("Role is required")
     .custom((value) => {
       const r = parseInt(value, 10);
-      if (r !== 2 && r !== 3) throw new Error("Role must be 2 or 3");
+      if (![1, 2, 3].includes(r)) {
+        throw new Error("Role must be 1 (Admin), 2 (Reseller), or 3 (Store Owner)");
+      }
       return true;
     }),
 
+  // ✅ Controller
   async (req, res) => {
     const errors = validationResult(req);
-    if (!errors.isEmpty())
+    if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
+    }
 
     const { email, password } = req.body;
-    const role = parseInt(req.body.role, 10); // ✅ always a number
+    const role = parseInt(req.body.role, 10);
 
     try {
       const user = await User.findOne({ email });
-      if (!user)
+
+      // ❌ User not found
+      if (!user) {
         return res.status(400).json({ message: "Invalid credentials" });
+      }
 
-      console.log("DB role:", user.role, typeof user.role); // ✅ ADD THIS
-      console.log("Request role:", role, typeof role);       // ✅ ADD THIS
-
+      // ❌ Role mismatch
       if (user.role !== role) {
         return res.status(403).json({
           message:
-            role === 2
+            role === 1
+              ? "This account is not an admin account"
+              : role === 2
               ? "This account is not a reseller account"
               : "This account is not a store owner account",
         });
       }
 
+      // ❌ Wrong password
       const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch)
+      if (!isMatch) {
         return res.status(400).json({ message: "Invalid credentials" });
+      }
 
-      const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-        expiresIn: "30d",
+      // ✅ Generate token
+      const token = jwt.sign(
+        { userId: user._id, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: "30d" }
+      );
+
+      // ✅ Success response
+      return res.status(200).json({
+        message: "Login successful",
+        token,
+        user_details: user,
       });
-      res.json({ token, user_details: user });
+
     } catch (error) {
-      res.status(500).json({ message: "Server error", error: error.message });
+      return res.status(500).json({
+        message: "Server error",
+        error: error.message,
+      });
     }
   },
 ];
