@@ -9,6 +9,20 @@ const commentSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now },
 });
 
+// One optional price string per day of the week (null = no rate set)
+const dailyRatesSchema = new mongoose.Schema(
+  {
+    Friday:    { type: String, default: null },
+    Saturday:  { type: String, default: null },
+    Sunday:    { type: String, default: null },
+    Monday:    { type: String, default: null },
+    Tuesday:   { type: String, default: null },
+    Wednesday: { type: String, default: null },
+    Thursday:  { type: String, default: null },
+  },
+  { _id: false },
+);
+
 const storeSchema = new mongoose.Schema({
   _id: { type: String, default: uuidv4 },
   user_id: { type: String, ref: "User", required: true, unique: true },
@@ -30,21 +44,20 @@ const storeSchema = new mongoose.Schema({
   instagram_link: { type: String, default: null },
   twitter_link: { type: String, default: null },
   whatsapp_link: { type: String, default: null },
-  followers: { type: Number, default: 0 }, // Updated to reflect followed_by count
-  likes: { type: Number, default: 0 }, // Updated to reflect liked_by count
+  followers: { type: Number, default: 0 },
+  likes: { type: Number, default: 0 },
   verified: { type: Boolean, default: false },
-  checked_in_by: {
-    type: [String],
-    default: [],
-  },
+  checked_in_by: { type: [String], default: [] },
   store_image: { type: String, default: null },
+  store_images: { type: [String], default: [] }, 
   ratings: { type: Number, default: 0 },
   rating_count: { type: Number, default: 0 },
-  views_count: { type: Number, default: 0 }, // New: Track view count
+  views_count: { type: Number, default: 0 },
   favorited_by: [{ type: String, ref: "User", default: [] }],
-  liked_by: [{ type: String, ref: "User", default: [] }], // New: Track users who liked
-  followed_by: [{ type: String, ref: "User", default: [] }], // New: Track users who follow
-  comments: [commentSchema], // New: Store comments
+  liked_by: [{ type: String, ref: "User", default: [] }],
+  followed_by: [{ type: String, ref: "User", default: [] }],
+  comments: [commentSchema],
+  daily_rates: { type: dailyRatesSchema, default: () => ({}) }, // ← added
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now },
 });
