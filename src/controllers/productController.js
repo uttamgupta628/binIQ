@@ -249,7 +249,7 @@ const deleteProduct = async (req, res) => {
 module.exports = {
   createProduct,
   getProducts,
-  getProductById, // ✅ NEW
+  getProductById, 
   getTrendingProducts,
   getActivityFeed,
   likeProduct,
