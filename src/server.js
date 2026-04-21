@@ -48,6 +48,30 @@ app.use("/api/export", exportRoutes);
 app.use("/api/payments", paymentRoutes);  // ✅ AFTER express.json()
 
 // ── Global Error Handler ─────────────────────────────────────────
+app.get("/delete-account", (req, res) => {
+  res.send(`
+    <h1>Delete Account - BinIQ</h1>
+
+    <p>You can delete your account using the BinIQ app.</p>
+
+    <h3>Steps:</h3>
+    <ol>
+      <li>Login to your account</li>
+      <li>Go to Profile Settings</li>
+      <li>Click on "Delete Account"</li>
+    </ol>
+
+    <p>If you cannot access your account, contact us:</p>
+    <p>Email: support@biniq.com</p>
+
+    <h3>Data Deletion:</h3>
+    <ul>
+      <li>Personal data (name, email, phone, address) will be deleted</li>
+      <li>Your account will be permanently removed</li>
+      <li>Some data may be retained for up to 30 days for legal purposes</li>
+    </ul>
+  `);
+});
 app.use((err, req, res, next) => {
   console.error("Error:", {
     message: err.message,
