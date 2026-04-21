@@ -24,6 +24,7 @@ const {
   getFeedbackRatingTrends,
   getUserAnalytics,
   getUserAddressesAndStatus,
+  deleteSelfAccount
 } = require("../controllers/userController");
 const { authenticate } = require("../utils/auth");
 const {
@@ -48,6 +49,7 @@ router.post("/verify-otp", verifyOTP);
 router.post("/reset-password", resetPassword);
 router.post("/change-password", authenticate, ...changePassword);
 router.delete("/delete-account", authenticate, ...deleteAccount);
+router.delete("/delete-my-account", authenticate, ...deleteSelfAccount);
 router.post("/feedback", authenticate, ...submitFeedback);
 router.get("/feedback", authenticate, getFeedback);
 router.get("/feedback/trends", authenticate, getFeedbackRatingTrends);

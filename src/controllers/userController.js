@@ -1434,7 +1434,52 @@ const getUserAddressesAndStatus = async (req, res) => {
     });
   }
 };
+const deleteSelfAccount = [
+  check("password").notEmpty().withMessage("Password is required to confirm account deletion"),
 
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty())
+      return res.status(400).json({ errors: errors.array() });
+
+    const { password } = req.body;
+    const userId = req.user.userId;
+
+    try {
+      const user = await User.findById(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      // Prevent admins from deleting themselves via this route
+      if (user.role === 1)
+        return res.status(403).json({
+          message: "Admins cannot delete their own account",
+        });
+
+      // Require password confirmation before deletion
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch)
+        return res.status(400).json({ message: "Incorrect password" });
+
+      await User.deleteOne({ _id: userId });
+
+      // If store owner, clean up their store too
+      if (user.role === 3) {
+        await Store.deleteOne({ user_id: userId });
+      }
+
+      res.json({
+        success: true,
+        message: "Your account has been deleted successfully",
+      });
+    } catch (error) {
+      console.error("Delete self account error:", error);
+      res.status(500).json({
+        message: "Server error",
+        error: error.message,
+      });
+    }
+  },
+];
 module.exports = {
   register,
   login,
@@ -1458,5 +1503,6 @@ module.exports = {
   createStoreOwner,
   getFeedbackRatingTrends,
   getUserAnalytics,
-  getUserAddressesAndStatus
+  getUserAddressesAndStatus,
+  deleteSelfAccount
 };
