@@ -8,12 +8,12 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   role: { type: Number, enum: [1, 2, 3], required: true }, // 1: Admin, 2: Reseller, 3: Store Owner
-  dob: { type: Date, default: null },
-  gender: {
-    type: String,
-    enum: ["male", "female", "other", null],
-    default: null,
-  },
+  // dob: { type: Date, default: null },
+  // gender: {
+  //   type: String,
+  //   enum: ["male", "female", "other", null],
+  //   default: null,
+  // },
   phone_number: { type: String, default: null },
   address: { type: String, default: null },
   verified: { type: Boolean, default: false },
