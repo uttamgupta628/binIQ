@@ -15,6 +15,8 @@ const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const statsRoutes = require("./routes/statsRoutes");
 const paymentRoutes = require("./routes/Paymentroutes");
 const exportRoutes = require("./routes/exportRoutes");
+const storeClaimRoutes = require("./routes/storeClaimRoutes");
+const adminClaimRoutes = require("./routes/adminClaimRoutes");
 
 // Load environment variables
 dotenv.config();
@@ -40,6 +42,8 @@ app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/promotions", promotionRoutes);
 app.use("/api/stores", storeRoutes);
+app.use("/api/stores", storeClaimRoutes);  
+app.use("/api/admin", adminClaimRoutes);
 app.use("/api/faqs", faqRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
@@ -89,10 +93,20 @@ app.use((err, req, res, next) => {
 // ── Database ─────────────────────────────────────────────────────
 mongoose
   .connect(process.env.MONGODB_URI, {})
-  .then(() => {
-    console.log("MongoDB connected successfully");
-    initializePlans();
-  })
+  .then(async () => {
+  console.log("MongoDB connected successfully");
+
+  try {
+    await mongoose.connection.collection("stores").dropIndex("user_id_1");
+    console.log("Dropped unique user_id index on stores");
+  } catch (err) {
+    if (err.codeName !== "IndexNotFound") {
+      console.warn("Could not drop user_id index:", err.message);
+    }
+  }
+
+  initializePlans();
+})
   .catch((err) => console.error("MongoDB connection error:", err.message));
 
 const initializePlans = async () => {

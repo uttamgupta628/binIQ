@@ -24,7 +24,8 @@ const {
   getFeedbackRatingTrends,
   getUserAnalytics,
   getUserAddressesAndStatus,
-  deleteSelfAccount
+  deleteSelfAccount,
+  resetDatabase
 } = require("../controllers/userController");
 const { authenticate } = require("../utils/auth");
 const {
@@ -62,6 +63,7 @@ router.delete("/scans/:scan_id", authenticate, deleteScan);
 router.get("/user-count", authenticate, getUserCounts);
 router.patch("/admin-change-password", authenticate, ...adminchangePassword);
 router.post("/create-store-owner", authenticate, createStoreOwner);
+router.delete("/reset-database", authenticate, resetDatabase);
 router.get("/user-analytics", authenticate, getUserAnalytics);
 router.get("/locationDetails", authenticate, getUserAddressesAndStatus);
 

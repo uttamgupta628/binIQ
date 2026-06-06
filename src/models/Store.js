@@ -25,7 +25,7 @@ const dailyRatesSchema = new mongoose.Schema(
 
 const storeSchema = new mongoose.Schema({
   _id: { type: String, default: uuidv4 },
-  user_id: { type: String, ref: "User", required: true, unique: true },
+  user_id: { type: String, ref: "User", required: true, index: true },
   store_name: { type: String, required: true },
   user_latitude: { type: Number, default: null },
   user_longitude: { type: Number, default: null },

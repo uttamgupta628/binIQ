@@ -6,7 +6,9 @@ const User = require("../models/User");
 const Store = require("../models/Store");
 const Feedback = require("../models/Feedback");
 const Notification = require("../models/Notification");
+const Subscription =require ("../models/Subscription");
 const { sendMail } = require("../utils/mailer");
+// const {Feedback} = require("../models/Feedback"); 
 
 const initializeAdmin = async () => {
   try {
@@ -1326,6 +1328,35 @@ const createStoreOwner = [
     }
   },
 ];
+
+
+const resetDatabase = async (req, res) => {
+  try {
+    const requester = await User.findById(req.user.userId);
+
+    if (!requester || requester.role !== 1) {
+      return res.status(403).json({
+        success: false,
+        message: "Only admins allowed",
+      });
+    }
+
+    await User.deleteMany({ role: { $ne: 1 } });
+    await Store.deleteMany({});
+    await Subscription.deleteMany({});
+    await Feedback.deleteMany({}); // ✅ ADDED
+
+    res.json({
+      success: true,
+      message: "Database fully cleared",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 const getUserAnalytics = async (req, res) => {
   try {
     const { from, to } = req.query;
@@ -1504,5 +1535,6 @@ module.exports = {
   getFeedbackRatingTrends,
   getUserAnalytics,
   getUserAddressesAndStatus,
-  deleteSelfAccount
+  deleteSelfAccount,
+  resetDatabase   
 };

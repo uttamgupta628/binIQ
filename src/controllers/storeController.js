@@ -33,9 +33,11 @@ const VALID_DAYS = [
 ];
 
 const VALID_PRICES = [
-  "15.00", "14.00", "13.00", "12.00", "11.00", "10.00",
-  "9.00",  "8.00",  "7.00",  "6.00",  "5.00",  "4.00",
-  "3.00",  "2.00",  "1.00",  "0.50",
+  "25.00", "24.00", "23.00", "22.00", "21.00", "20.00",
+  "19.00", "18.00", "17.00", "16.00", "15.00", "14.00",
+  "13.00", "12.00", "11.00", "10.00", "9.00",  "8.00",
+  "7.00",  "6.00",  "5.00",  "4.00",  "3.00",  "2.00",
+  "1.00",  "0.50",
 ];
 
 /**
@@ -657,6 +659,99 @@ const getCheckedInStores = async (req, res) => {
   }
 };
 
+const bulkCreateStores = async (req, res) => {
+  if (req.user.role !== 1) {
+    return res.status(403).json({ message: "Admin access required" });
+  }
+
+  const { stores } = req.body;
+
+  if (!Array.isArray(stores) || stores.length === 0) {
+    return res.status(400).json({ message: "stores array is required" });
+  }
+
+  const results = { created: [], failed: [] };
+
+  for (const storeData of stores) {
+    try {
+      const {
+        store_name, address, city, state, zip_code,
+        store_email, facebook_link, daily_rates,
+      } = storeData;
+
+      if (!store_name) {
+        results.failed.push({ store_name: storeData.store_name ?? "(unknown)", reason: "store_name is required" });
+        continue;
+      }
+
+      let sanitisedRates = {};
+      if (daily_rates != null) {
+        const result = sanitiseDailyRates(daily_rates);
+        if (!result.valid) {
+          results.failed.push({ store_name, reason: result.error });
+          continue;
+        }
+        sanitisedRates = result.sanitised;
+      }
+
+      const store = new Store({
+        _id: require("uuid").v4(),
+        user_id: "unassigned",   // ← sentinel: satisfies required, signals unclaimed store
+        store_name,
+        address:       address       || null,
+        city:          city          || null,
+        state:         state         || null,
+        zip_code:      zip_code      || null,
+        store_email:   store_email   || null,
+        facebook_link: facebook_link || null,
+        daily_rates:   sanitisedRates,
+        verified:      false,
+        favorited_by:  [],
+        liked_by:      [],
+        followed_by:   [],
+        comments:      [],
+      });
+
+      await store.save();
+      results.created.push({ store_name, store_id: store._id });
+
+    } catch (err) {
+      results.failed.push({
+        store_name: storeData.store_name ?? "(unknown)",
+        reason: err.message,
+      });
+    }
+  }
+
+  res.status(207).json({
+    message: `${results.created.length} stores created, ${results.failed.length} failed`,
+    created: results.created,
+    failed:  results.failed,
+  });
+};
+
+// GET /api/stores/search?q=krazy  (public — no auth required)
+const searchStores = async (req, res) => {
+  const { q } = req.query;
+  if (!q || q.trim().length < 2)
+    return res.status(400).json({ message: "Query must be at least 2 characters" });
+
+  try {
+    const regex = { $regex: q.trim(), $options: "i" };
+    const stores = await Store.find({
+      $or: [
+        { store_name: regex },
+        { address:    regex },
+        { city:       regex },
+      ],
+    }).select("_id store_name address city state user_id verified");
+
+    res.json(stores);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
 module.exports = {
   createStore,
   getStore,
@@ -674,4 +769,6 @@ module.exports = {
   getTopStores,
   checkInStore,
   getCheckedInStores,
+  bulkCreateStores,
+  searchStores,
 };
