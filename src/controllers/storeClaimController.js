@@ -347,8 +347,15 @@ const approveClaim = [
       await claim.save();
 
       // ── 4. Send approval email ──────────────────────────────────────────
+      // Prefer the store's own email; fall back to the claimant's email
+      // (3,430 stores in the bulk upload have no store_email)
+      const linkedStore = claim.store_id
+        ? await Store.findById(claim.store_id).select("store_email")
+        : null;
+      const toEmail = linkedStore?.store_email || claim.email;
+
       await sendMail(
-        claim.email,
+        toEmail,
         "🎉 Your BinIQ Store Claim Has Been Approved!",
         `Hi ${claim.full_name},\n\nGreat news! Your claim for "${
           claim.business_name || "your store"
@@ -401,8 +408,15 @@ const rejectClaim = [
       claim.updated_at = new Date();
       await claim.save();
 
+      // ── Send rejection email ────────────────────────────────────────────
+      // Prefer the store's own email; fall back to the claimant's email
+      const linkedStore = claim.store_id
+        ? await Store.findById(claim.store_id).select("store_email")
+        : null;
+      const toEmail = linkedStore?.store_email || claim.email;
+
       await sendMail(
-        claim.email,
+        toEmail,
         "Update on Your BinIQ Store Claim",
         `Hi ${claim.full_name},\n\nUnfortunately, your claim for "${
           claim.business_name || "the store"
@@ -420,7 +434,6 @@ const rejectClaim = [
     }
   },
 ];
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Check claim status by email
 // GET /api/stores/claim/status?email=xxx
